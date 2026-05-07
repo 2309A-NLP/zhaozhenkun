@@ -25,6 +25,7 @@ USER_DATA_FILE = BASE_DIR / "runtime_data" / "user_accounts.json"
 API_DOCS_FILE = BASE_DIR / "API_DOCS.md"
 # 拼接路径：API文档Markdown文件位置
 
+
 def load_env_file(env_path: Path) -> None:
     # 定义函数：从指定路径加载.env文件内容到环境变量，参数是Path对象，无返回值
 
@@ -54,6 +55,7 @@ def load_env_file(env_path: Path) -> None:
         # .strip('"').strip("'") 去除值两端可能存在的双引号或单引号
         # setdefault 表示如果该环境变量尚未设置，则设置它；如果已存在，则保留原值
 
+
 load_env_file(ENV_FILE)
 # 调用上面的函数，加载.env文件中的配置到系统环境变量
 
@@ -75,11 +77,15 @@ SESSION_TIMEOUT = int(os.getenv("SESSION_TIMEOUT", "604800"))
 USE_MOCK_MODE = not bool(KIMI_API_KEY)
 # 如果KIMI_API_KEY为空（未配置），则进入模拟模式（使用假数据），否则使用真实API
 
-BGE_M3_PATH = os.getenv("BGE_M3_PATH", r"C:\Users\31326\Desktop\bge-m3").replace("/", "\\")
-# 获取BGE-M3嵌入模型的本地路径，默认指向桌面目录，并将所有正斜杠替换为反斜杠（Windows路径格式）
+# ============================================================
+# 修改处：BGE模型路径改为相对路径（相对于项目根目录下的models文件夹）
+# ============================================================
+BGE_M3_PATH = os.getenv("BGE_M3_PATH", str(BASE_DIR / "models" / "bge-m3"))
+# 获取BGE-M3嵌入模型的本地路径，默认指向项目根目录下的 models/bge-m3 文件夹
 
-BGE_RERANKER_PATH = os.getenv("BGE_RERANKER_PATH", r"C:\Users\31326\Desktop\bge-reranker-base").replace("/", "\\")
-# 获取BGE重排序模型的本地路径，默认指向桌面目录，同样做路径格式转换
+BGE_RERANKER_PATH = os.getenv("BGE_RERANKER_PATH", str(BASE_DIR / "models" / "bge-reranker-base"))
+# 获取BGE重排序模型的本地路径，默认指向项目根目录下的 models/bge-reranker-base 文件夹
+# ============================================================
 
 MILVUS_HOSTS = [
     host.strip()
