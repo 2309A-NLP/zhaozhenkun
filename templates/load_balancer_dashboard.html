@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>负载均衡</title>
+    <style>
+        body { margin:0; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:linear-gradient(135deg,#f6efe5,#eff7f4); color:#1f2937; }
+        .wrap { max-width:1280px; margin:0 auto; padding:24px; }
+        .panel,.card { background:rgba(255,255,255,.92); border:1px solid rgba(255,255,255,.7); border-radius:24px; box-shadow:0 18px 40px rgba(15,23,42,.12); backdrop-filter:blur(18px); }
+        .panel { padding:24px; margin-bottom:18px; }
+        .toolbar { display:flex; gap:10px; flex-wrap:wrap; }
+        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:18px; }
+        .card { padding:18px; }
+        .value { font-size:34px; font-weight:800; }
+        .label,.muted { color:#6b7280; }
+        .btn { border:none; border-radius:16px; padding:12px 16px; cursor:pointer; font:inherit; font-weight:800; }
+        .primary { background:linear-gradient(135deg,#0f766e,#ea580c); color:#fff; }
+        .secondary { background:#fff; border:1px solid rgba(15,23,42,.08); }
+        table { width:100%; border-collapse:collapse; }
+        th,td { padding:12px 10px; border-bottom:1px solid rgba(15,23,42,.08); text-align:left; font-size:14px; }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="panel">
+            <h1>负载均衡</h1>
+            <p class="muted">这里显示当前 LLM 客户端的负载均衡状态、端点统计、平均响应时间和成功率。如果没有配置多个真实接口，页面会明确显示当前处于 mock 或单端点模式。</p>
+            <div class="toolbar" style="margin-top:14px;">
+                <button class="btn secondary" onclick="window.location.href='/chat'">返回聊天</button>
+                <button class="btn secondary" onclick="window.location.href='/performance'">性能测试</button>
+                <button class="btn secondary" onclick="window.location.href='/stress'">压力测试</button>
+                <button class="btn secondary" onclick="window.location.href='/retrieval'">混合检索</button>
+                <button class="btn primary" onclick="refreshData()">刷新</button>
+            </div>
+        </section>
+
+        <section id="cards" class="grid"></section>
+
+        <section class="panel">
+            <h3>端点列表</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>模型</th>
+                        <th>状态</th>
+                        <th>当前负载</th>
+                        <th>总请求</th>
+                        <th>成功率</th>
+                        <th>平均响应</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `请求失败: ${response.status}`);
+            return data;
+        }
+
+        function renderCards(stats) {
+            const totalRequests = stats.reduce((sum, item) => sum + (item.total_requests || 0), 0);
+            const avgSuccess = stats.length ? (stats.reduce((sum, item) => sum + (item.success_rate || 0), 0) / stats.length).toFixed(2) : '0.00';
+            const avgResp = stats.length ? (stats.reduce((sum, item) => sum + (item.avg_response_time || 0), 0) / stats.length).toFixed(2) : '0.00';
+            const cards = [
+                ['端点数量', String(stats.length)],
+                ['累计请求数', String(totalRequests)],
+                ['平均成功率', `${avgSuccess}%`],
+                ['平均响应', `${avgResp} ms`]
+            ];
+            document.getElementById('cards').innerHTML = cards.map(([label, value]) => `
+                <div class="card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderRows(stats) {
+            document.getElementById('tbody').innerHTML = stats.map(item => `
+                <tr>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.model)}</td>
+                    <td>${escapeHtml(item.status)}</td>
+                    <td>${item.current_load}</td>
+                    <td>${item.total_requests}</td>
+                    <td>${item.success_rate}%</td>
+                    <td>${item.avg_response_time} ms</td>
+                </tr>
+            `).join('');
+        }
+
+        async function refreshData() {
+            const data = await fetchJson('/api/load_balancer/stats');
+            const stats = data.stats || [];
+            renderCards(stats);
+            renderRows(stats);
+        }
+
+        refreshData();
+        setInterval(refreshData, 4000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>混合检索</title>
+    <style>
+        body { margin:0; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:linear-gradient(135deg,#f6efe5,#eff7f4); color:#1f2937; }
+        .wrap { max-width:1380px; margin:0 auto; padding:24px; }
+        .panel,.card,.result { background:rgba(255,255,255,.92); border:1px solid rgba(255,255,255,.7); border-radius:24px; box-shadow:0 18px 40px rgba(15,23,42,.12); backdrop-filter:blur(18px); }
+        .panel { padding:24px; margin-bottom:18px; }
+        .toolbar,.grid,.columns { display:flex; flex-wrap:wrap; gap:12px; }
+        .grid { display:grid; grid-template-columns:2fr 120px 120px auto; gap:12px; }
+        .columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+        .muted { color:#6b7280; line-height:1.7; }
+        input { width:100%; padding:12px 14px; border-radius:14px; border:1px solid rgba(15,23,42,.08); background:#fff; }
+        .btn { border:none; border-radius:16px; padding:12px 16px; cursor:pointer; font:inherit; font-weight:800; }
+        .primary { background:linear-gradient(135deg,#0f766e,#ea580c); color:#fff; }
+        .secondary { background:#fff; border:1px solid rgba(15,23,42,.08); }
+        .card { padding:18px; }
+        .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+        .chip { padding:8px 12px; border-radius:999px; background:rgba(15,118,110,.1); color:#0f766e; font-size:12px; font-weight:700; }
+        .list { display:grid; gap:12px; }
+        .result { padding:14px; }
+        .result strong { display:block; margin-bottom:6px; }
+        .result p { line-height:1.7; margin-bottom:8px; }
+        .meta { color:#6b7280; font-size:12px; }
+        @media (max-width:1100px) { .columns,.grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="panel">
+            <h1>混合检索 / 多路召回 / 重排序</h1>
+            <p class="muted">这个页面直接展示你现有系统里 BM25、TF-IDF、Milvus 向量召回、RRF 融合和 BGE-Rerank 的各阶段结果，方便你点进去看链路是否真的生效。</p>
+            <div class="toolbar" style="margin-top:14px;">
+                <button class="btn secondary" onclick="window.location.href='/chat'">返回聊天</button>
+                <button class="btn secondary" onclick="window.location.href='/performance'">性能测试</button>
+                <button class="btn secondary" onclick="window.location.href='/stress'">压力测试</button>
+                <button class="btn secondary" onclick="window.location.href='/load-balancer'">负载均衡</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="grid">
+                <input id="query" value="兰蔻小黑瓶具备哪些基础功能？" placeholder="输入查询问题">
+                <input id="topk" type="number" value="5" min="1" max="10">
+                <div></div>
+                <button class="btn primary" onclick="runDebug()">开始检索</button>
+            </div>
+            <div id="summary" class="chips"></div>
+        </section>
+
+        <section class="columns">
+            <div class="panel">
+                <h3>BM25 召回</h3>
+                <div id="bm25" class="list"></div>
+            </div>
+            <div class="panel">
+                <h3>TF-IDF 召回</h3>
+                <div id="tfidf" class="list"></div>
+            </div>
+            <div class="panel">
+                <h3>Milvus 向量召回</h3>
+                <div id="vector" class="list"></div>
+            </div>
+            <div class="panel">
+                <h3>RRF 融合 + BGE-Rerank</h3>
+                <div id="reranked" class="list"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `请求失败: ${response.status}`);
+            return data;
+        }
+
+        function renderList(targetId, rows) {
+            const target = document.getElementById(targetId);
+            if (!rows || !rows.length) {
+                target.innerHTML = '<div class="result"><p>暂无结果</p></div>';
+                return;
+            }
+            target.innerHTML = rows.map(row => `
+                <div class="result">
+                    <strong>${escapeHtml(row.question || '无问题文本')}</strong>
+                    <p>${escapeHtml(row.answer || '无答案')}</p>
+                    <div class="meta">
+                        来源: ${escapeHtml(row.source || 'unknown')}
+                        · score=${row.score || 0}
+                        · rerank=${row.rerank_score || 0}
+                        · vector=${row.vector_score || 0}
+                        · bm25=${row.bm25_score || 0}
+                        · tfidf=${row.tfidf_score || 0}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderSummary(debug) {
+            const timings = debug.timings || {};
+            const modes = debug.modes || [];
+            const chips = [
+                `模式: ${modes.join(' / ') || '无'}`,
+                `总耗时: ${timings.total_ms || 0} ms`,
+                `词法召回: ${timings.lexical_ms || 0} ms`,
+                `向量召回: ${timings.vector_ms || 0} ms`,
+                `融合: ${timings.fusion_ms || 0} ms`,
+                `重排: ${timings.rerank_ms || 0} ms`
+            ];
+            document.getElementById('summary').innerHTML = chips.map(text => `<span class="chip">${escapeHtml(text)}</span>`).join('');
+        }
+
+        async function runDebug() {
+            const query = encodeURIComponent(document.getElementById('query').value.trim());
+            const topk = Number(document.getElementById('topk').value || 5);
+            const data = await fetchJson(`/api/retrieval/debug?query=${query}&top_k=${topk}`);
+            const debug = data.debug || {};
+            renderSummary(debug);
+            renderList('bm25', debug.recall?.bm25 || []);
+            renderList('tfidf', debug.recall?.tfidf || []);
+            renderList('vector', debug.recall?.vector || []);
+            renderList('reranked', debug.recall?.reranked || []);
+        }
+
+        runDebug();
+    </script>
+</body>
+</html>

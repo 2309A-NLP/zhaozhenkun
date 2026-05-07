@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# 项目数据
+*.json
+!config.py
+*.jsonl
+runtime_data/
+*.db
+*.sqlite
+
+# 模型文件（太大，不上传）
+bge-m3/
+bge-reranker/
+*.pth
+*.bin
+*.safetensors
+
+# 日志
+*.log
+*.pid
+
+# 环境变量
+.env
+.env.local
+
+
+# 输出目录
+processed_data/
+vector_index/

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QPS 监控</title>
+    <style>
+        body { margin:0; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:linear-gradient(135deg,#f6efe5,#eff7f4); color:#1f2937; }
+        .wrap { max-width:1280px; margin:0 auto; padding:24px; }
+        .panel,.card { background:rgba(255,255,255,.92); border:1px solid rgba(255,255,255,.7); border-radius:24px; box-shadow:0 18px 40px rgba(15,23,42,.12); backdrop-filter:blur(18px); }
+        .panel { padding:24px; margin-bottom:18px; }
+        .toolbar,.grid,.nav { display:flex; flex-wrap:wrap; gap:10px; }
+        .panel h1 { margin:0 0 8px; }
+        .muted { color:#6b7280; line-height:1.7; }
+        .btn { border:none; border-radius:999px; padding:10px 14px; cursor:pointer; font:inherit; font-weight:700; }
+        .btn.primary { background:linear-gradient(135deg,#0f766e,#ea580c); color:#fff; }
+        .btn.secondary { background:#fff; border:1px solid rgba(15,23,42,.08); }
+        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:18px; }
+        .card { padding:18px; }
+        .label { color:#6b7280; font-size:13px; margin-bottom:8px; }
+        .value { font-size:34px; font-weight:800; }
+        .sub { color:#6b7280; font-size:13px; margin-top:8px; }
+        .row { display:grid; grid-template-columns:1.4fr 1fr; gap:18px; }
+        .chart { min-height:320px; display:flex; align-items:flex-end; gap:4px; padding:14px; border-radius:18px; background:linear-gradient(180deg,rgba(15,118,110,.05),rgba(255,255,255,.55)); border:1px solid rgba(15,23,42,.08); }
+        .bar { flex:1; min-width:5px; border-radius:10px 10px 0 0; background:linear-gradient(180deg,#ea580c,#0f766e); }
+        .timeline { max-height:320px; overflow:auto; display:grid; gap:10px; }
+        .item { padding:12px 14px; border-radius:16px; border:1px solid rgba(15,23,42,.08); background:rgba(255,255,255,.84); }
+        .item small { color:#6b7280; display:block; margin-bottom:6px; }
+        @media (max-width:980px) { .row { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="panel">
+            <h1>QPS 运行监控</h1>
+            <p class="muted">展示当前请求吞吐、成功率、累计请求量和最近一分钟的实时波动。你也可以从这里跳转到性能测试、压力测试、混合检索和负载均衡页面。</p>
+            <div class="toolbar">
+                <button class="btn secondary" onclick="window.location.href='/chat'">返回聊天</button>
+                <button class="btn secondary" onclick="window.location.href='/performance'">性能测试</button>
+                <button class="btn secondary" onclick="window.location.href='/stress'">压力测试</button>
+                <button class="btn secondary" onclick="window.location.href='/retrieval'">混合检索</button>
+                <button class="btn secondary" onclick="window.location.href='/load-balancer'">负载均衡</button>
+                <button class="btn primary" onclick="refreshData()">立即刷新</button>
+            </div>
+        </section>
+
+        <section class="grid" id="statsGrid"></section>
+
+        <section class="row">
+            <div class="panel">
+                <h3>最近 60 条请求时延</h3>
+                <div id="chart" class="chart"></div>
+            </div>
+            <div class="panel">
+                <h3>最近请求日志</h3>
+                <div id="timeline" class="timeline"></div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function fmt(v) { return typeof v === 'number' ? v.toString() : (v || '0'); }
+        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
+        function formatTs(ts) { return new Date((ts || 0) * 1000).toLocaleTimeString('zh-CN'); }
+
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `请求失败: ${response.status}`);
+            return data;
+        }
+
+        function renderCards(qps) {
+            const cards = [
+                ['当前 QPS', qps.current_qps, '最近 1 秒请求数'],
+                ['1 分钟平均 QPS', qps.qps_1min, '最近 60 秒平均值'],
+                ['5 分钟平均 QPS', qps.qps_5min, '最近 300 秒平均值'],
+                ['15 分钟平均 QPS', qps.qps_15min, '最近 900 秒平均值'],
+                ['总请求数', qps.total_requests, '系统启动以来累计'],
+                ['成功率', `${qps.success_rate}%`, `成功 ${qps.success_requests} / 失败 ${qps.error_requests}`]
+            ];
+            document.getElementById('statsGrid').innerHTML = cards.map(([label, value, sub]) => `
+                <div class="card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(String(value))}</div>
+                    <div class="sub">${escapeHtml(sub)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderChart(items) {
+            const list = items.length ? items : [{ duration_ms: 0 }];
+            const max = Math.max(...list.map(item => item.duration_ms || 0), 1);
+            document.getElementById('chart').innerHTML = list.map(item => {
+                const height = Math.max(6, Math.round((item.duration_ms || 0) / max * 280));
+                return `<div class="bar" title="${item.duration_ms}ms" style="height:${height}px;"></div>`;
+            }).join('');
+        }
+
+        function renderTimeline(items) {
+            const timeline = items.slice().reverse();
+            document.getElementById('timeline').innerHTML = timeline.map(item => `
+                <div class="item">
+                    <small>${escapeHtml(formatTs(item.timestamp))}</small>
+                    <div>耗时: ${escapeHtml(String(item.duration_ms))} ms</div>
+                    <div>状态: ${item.success ? '成功' : '失败'}</div>
+                </div>
+            `).join('');
+        }
+
+        async function refreshData() {
+            const data = await fetchJson('/api/qps/stats');
+            const qps = data.qps || {};
+            renderCards(qps);
+            renderChart(qps.recent || []);
+            renderTimeline(qps.recent || []);
+        }
+
+        refreshData();
+        setInterval(refreshData, 3000);
+    </script>
+</body>
+</html>

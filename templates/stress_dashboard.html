@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>压力测试</title>
+    <style>
+        body { margin:0; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:linear-gradient(135deg,#f6efe5,#eff7f4); color:#1f2937; }
+        .wrap { max-width:1280px; margin:0 auto; padding:24px; }
+        .panel,.card { background:rgba(255,255,255,.92); border:1px solid rgba(255,255,255,.7); border-radius:24px; box-shadow:0 18px 40px rgba(15,23,42,.12); backdrop-filter:blur(18px); }
+        .panel { padding:24px; margin-bottom:18px; }
+        .form-grid { display:grid; grid-template-columns:2fr 140px 160px 120px auto; gap:12px; }
+        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:18px; }
+        .card { padding:18px; }
+        .value { font-size:34px; font-weight:800; }
+        .label,.muted { color:#6b7280; }
+        input { width:100%; padding:12px 14px; border-radius:14px; border:1px solid rgba(15,23,42,.08); background:#fff; }
+        .btn { border:none; border-radius:16px; padding:12px 16px; cursor:pointer; font:inherit; font-weight:800; }
+        .primary { background:linear-gradient(135deg,#0f766e,#ea580c); color:#fff; }
+        .secondary { background:#fff; border:1px solid rgba(15,23,42,.08); }
+        table { width:100%; border-collapse:collapse; }
+        th,td { padding:12px 10px; border-bottom:1px solid rgba(15,23,42,.08); text-align:left; font-size:14px; }
+        @media (max-width:980px) { .form-grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="panel">
+            <h1>压力测试</h1>
+            <p class="muted">并发压测当前检索链路，观察吞吐、成功率、P95 和峰值响应。这里是系统内部压测，不需要你额外发起外部请求。</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;">
+                <button class="btn secondary" onclick="window.location.href='/chat'">返回聊天</button>
+                <button class="btn secondary" onclick="window.location.href='/performance'">性能测试</button>
+                <button class="btn secondary" onclick="window.location.href='/retrieval'">混合检索</button>
+                <button class="btn secondary" onclick="window.location.href='/load-balancer'">负载均衡</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="form-grid">
+                <input id="query" value="兰蔻小黑瓶具备哪些基础功能？" placeholder="输入测试问题">
+                <input id="concurrency" type="number" value="8" min="1" max="32" placeholder="并发数">
+                <input id="requestCount" type="number" value="40" min="1" max="300" placeholder="请求数">
+                <input id="topk" type="number" value="5" min="1" max="10" placeholder="TopK">
+                <button class="btn primary" onclick="runStress()">开始压测</button>
+            </div>
+        </section>
+
+        <section id="cards" class="grid"></section>
+
+        <section class="panel">
+            <h3>样本结果</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>状态</th>
+                        <th>耗时</th>
+                        <th>命中数</th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `请求失败: ${response.status}`);
+            return data;
+        }
+
+        function renderCards(result) {
+            const cards = [
+                ['总耗时', `${result.duration_seconds} s`],
+                ['吞吐量', `${result.throughput_rps} req/s`],
+                ['成功率', `${result.success_rate}%`],
+                ['平均耗时', `${result.avg_ms} ms`],
+                ['P95', `${result.p95_ms} ms`],
+                ['最大耗时', `${result.max_ms} ms`]
+            ];
+            document.getElementById('cards').innerHTML = cards.map(([label, value]) => `
+                <div class="card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderRows(rows) {
+            document.getElementById('tbody').innerHTML = rows.map((row, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${row.success ? '成功' : '失败'}</td>
+                    <td>${row.latency_ms} ms</td>
+                    <td>${row.hit_count || 0}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function runStress() {
+            const data = await fetchJson('/api/stress/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: document.getElementById('query').value.trim(),
+                    concurrency: Number(document.getElementById('concurrency').value || 8),
+                    request_count: Number(document.getElementById('requestCount').value || 40),
+                    top_k: Number(document.getElementById('topk').value || 5)
+                })
+            });
+            renderCards(data.result);
+            renderRows(data.result.rows || []);
+        }
+
+        runStress();
+    </script>
+</body>
+</html>
