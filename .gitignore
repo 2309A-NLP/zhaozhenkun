@@ -26,28 +26,34 @@ ENV/
 
 # 项目数据
 *.json
-!config.py
 *.jsonl
 runtime_data/
 *.db
 *.sqlite
 
 # 模型文件（太大，不上传）
+models/
 bge-m3/
 bge-reranker/
 *.pth
 *.bin
 *.safetensors
 
+# 原始数据源（不上传，处理后的数据已存 processed_data/）
+*.pdf
+teacher_chinese_raw.txt
+
 # 日志
 *.log
 *.pid
+*.jtl
+*.sh.out
 
 # 环境变量
 .env
 .env.local
 
-
 # 输出目录
 processed_data/
 vector_index/
+jmeter/results/

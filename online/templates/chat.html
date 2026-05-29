@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG 对话系统</title>
+    <style>
+        :root {
+            --bg: #f8f4ee;
+            --panel: rgba(255,255,255,.9);
+            --surface: rgba(255,255,255,.78);
+            --line: rgba(15,23,42,.08);
+            --text: #1f2937;
+            --muted: #6b7280;
+            --primary: #0f766e;
+            --accent: #ea580c;
+            --shadow: 0 24px 60px rgba(15,23,42,.12);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 12% 18%, rgba(15,118,110,.13), transparent 28%),
+                radial-gradient(circle at 88% 10%, rgba(234,88,12,.14), transparent 24%),
+                linear-gradient(135deg, #faf7f2, #f5efe7 45%, #fcfaf7);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 340px minmax(0, 1fr);
+            gap: 18px;
+            min-height: 100vh;
+            padding: 18px;
+        }
+
+        .sidebar, .main {
+            background: var(--panel);
+            border: 1px solid rgba(255,255,255,.65);
+            border-radius: 28px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(18px);
+        }
+
+        .sidebar {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .main {
+            padding: 16px;
+            display: grid;
+            grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+            gap: 14px;
+            min-height: calc(100vh - 36px);
+        }
+
+        .brand, .user-card, .hero, .messages, .composer, .role-card, .nav-card, .status-card {
+            border: 1px solid var(--line);
+            background: var(--surface);
+        }
+
+        .brand, .user-card, .nav-card, .status-card, .role-card, .hero, .messages, .composer {
+            border-radius: 20px;
+        }
+
+        .brand, .user-card, .nav-card, .status-card, .hero, .composer { padding: 16px; }
+        .brand h1 { font-size: 24px; margin-bottom: 6px; }
+        .brand p, .hero p, .status-card p, .nav-card p { color: var(--muted); line-height: 1.6; font-size: 14px; }
+
+        .user-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ghost-btn, .send-btn, .suggestion-btn, .nav-btn {
+            border: none;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .ghost-btn, .nav-btn, .suggestion-btn {
+            border-radius: 999px;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,.88);
+            padding: 10px 14px;
+            font-weight: 700;
+        }
+
+        .nav-grid, .suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .status-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .status-chip {
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            background: rgba(15,118,110,.1);
+            color: var(--primary);
+        }
+
+        .role-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .role-card {
+            padding: 14px;
+            cursor: pointer;
+            transition: transform .18s ease, border-color .18s ease;
+        }
+
+        .role-card.active {
+            border-color: var(--primary);
+            box-shadow: inset 0 0 0 1px rgba(15,118,110,.1);
+        }
+
+        .role-card:hover { transform: translateY(-2px); }
+        .role-card strong { display: block; margin-bottom: 6px; }
+        .role-card p, .role-card small { color: var(--muted); line-height: 1.6; }
+        .hero h2 { font-size: 25px; margin-bottom: 8px; }
+
+        .messages {
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .empty {
+            margin: auto;
+            text-align: center;
+            color: var(--muted);
+            line-height: 1.8;
+        }
+
+        .message { display: flex; gap: 10px; }
+        .message.user { justify-content: flex-end; }
+        .bubble-wrap { max-width: min(78%, 760px); }
+        .bubble {
+            border-radius: 18px;
+            padding: 12px 14px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #fff;
+            border: 1px solid rgba(15,23,42,.06);
+        }
+
+        .message.user .bubble {
+            background: #111827;
+            color: #fff;
+            border-color: #111827;
+        }
+
+        .meta {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .message.user .meta { text-align: right; }
+
+        .composer-row {
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+        }
+
+        textarea {
+            flex: 1;
+            min-height: 56px;
+            max-height: 160px;
+            resize: none;
+            border: none;
+            background: transparent;
+            outline: none;
+            font: inherit;
+            font-size: 15px;
+            line-height: 1.8;
+            color: var(--text);
+        }
+
+        .send-btn {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+        }
+
+        .note { margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+        @media (max-width: 980px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <main class="layout">
+        <aside class="sidebar">
+            <section class="brand">
+                <h1>RAG 对话系统</h1>
+                <p>已接入多角色聊天、短期记忆 Redis、长期记忆 Milvus、混合检索、多路召回、BGE 重排序与多接口负载均衡。</p>
+            </section>
+
+            <section class="user-card">
+                <div>
+                    <strong id="userName">加载中</strong>
+                    <div style="color:var(--muted);font-size:13px;">当前登录用户</div>
+                </div>
+                <button id="logoutBtn" class="ghost-btn" type="button">退出登录</button>
+            </section>
+
+            <section class="nav-card">
+                <p>系统页面</p>
+                <div class="nav-grid" style="margin-top:12px;">
+                    <button class="nav-btn" type="button" onclick="window.location.href='/qps'">QPS</button>
+                    <button class="nav-btn" type="button" onclick="window.location.href='/performance'">性能测试</button>
+                    <button class="nav-btn" type="button" onclick="window.location.href='/stress'">压力测试</button>
+                    <button class="nav-btn" type="button" onclick="window.location.href='/retrieval'">混合检索</button>
+                    <button class="nav-btn" type="button" onclick="window.location.href='/load-balancer'">负载均衡</button>
+                    <button class="nav-btn" type="button" onclick="window.location.href='/combined-test'">综合测试</button>
+                </div>
+            </section>
+
+            <section class="status-card">
+                <p>组件状态</p>
+                <div id="systemStatus" class="status-list"></div>
+            </section>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <strong>角色列表</strong>
+                <button id="clearRoleBtn" class="ghost-btn" type="button">清空当前角色</button>
+            </div>
+            <section id="roleList" class="role-list"></section>
+        </aside>
+
+        <section class="main">
+            <section class="hero">
+                <h2 id="heroName">加载中</h2>
+                <p id="heroDesc">正在加载角色信息...</p>
+            </section>
+
+            <section id="suggestions" class="suggestions"></section>
+            <section id="retrievalInfo" class="status-card"></section>
+            <section id="messages" class="messages"></section>
+
+            <section class="composer">
+                <div class="composer-row">
+                    <textarea id="messageInput" placeholder="输入内容后回车发送，Shift + Enter 换行"></textarea>
+                    <button id="sendBtn" class="send-btn" type="button">发</button>
+                </div>
+                <div class="note">聊天链路会自动使用短期记忆、Milvus 长期记忆、混合检索、多路召回和 BGE 重排序。</div>
+            </section>
+        </section>
+    </main>
+
+    <script>
+        let avatars = [];
+        let currentAvatarId = 'doctor';
+        let currentMessages = [];
+        let currentUser = '';
+        let isSending = false;
+
+        const roleListEl = document.getElementById('roleList');
+        const suggestionsEl = document.getElementById('suggestions');
+        const messagesEl = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const clearRoleBtn = document.getElementById('clearRoleBtn');
+        const retrievalInfo = document.getElementById('retrievalInfo');
+        const systemStatus = document.getElementById('systemStatus');
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        function formatTime(timestamp) {
+            const date = timestamp ? new Date(timestamp) : new Date();
+            return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function autoGrow() {
+            messageInput.style.height = 'auto';
+            messageInput.style.height = `${Math.min(messageInput.scrollHeight, 160)}px`;
+        }
+
+        function getAvatar(avatarId = currentAvatarId) {
+            return avatars.find(item => item.id === avatarId) || avatars[0] || {
+                id: 'doctor',
+                name: '医生',
+                desc: '健康咨询',
+                welcome: '你好，请描述你的问题。',
+                suggestions: []
+            };
+        }
+
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || `请求失败: ${response.status}`);
+            }
+            return data;
+        }
+
+        function renderUser() {
+            document.getElementById('userName').textContent = currentUser || '访客';
+        }
+
+        function renderSystemStatus(overview) {
+            if (!overview) return;
+            const chips = [
+                `Redis: ${overview.short_term_memory.backend}`,
+                `Milvus: ${overview.long_term_memory.connected ? '已连接' : '未连接'}`,
+                `MySQL: ${overview.mysql.enabled ? '已启用' : '未启用'}`,
+                `BGE: ${overview.bge.loaded ? '已加载' : '降级模式'}`,
+                `召回: ${overview.hybrid_retrieval.multi_recall ? '多路召回' : '单路'}`,
+                `LLM: ${overview.llm_mode}`
+            ];
+            systemStatus.innerHTML = chips.map(text => `<span class="status-chip">${escapeHtml(text)}</span>`).join('');
+        }
+
+        function renderRoles() {
+            roleListEl.innerHTML = avatars.map(avatar => `
+                <article class="role-card ${avatar.id === currentAvatarId ? 'active' : ''}" data-avatar-id="${avatar.id}">
+                    <strong>${escapeHtml(avatar.name)}</strong>
+                    <p>${escapeHtml(avatar.desc || '')}</p>
+                    <small>${escapeHtml(avatar.welcome || '')}</small>
+                </article>
+            `).join('');
+
+            roleListEl.querySelectorAll('.role-card').forEach(card => {
+                card.addEventListener('click', async () => { await switchAvatar(card.dataset.avatarId); });
+            });
+        }
+
+        function renderHero() {
+            const avatar = getAvatar();
+            document.getElementById('heroName').textContent = avatar.name || '角色';
+            document.getElementById('heroDesc').textContent = avatar.desc || '';
+            suggestionsEl.innerHTML = (avatar.suggestions || []).map(text => `
+                <button class="suggestion-btn" type="button">${escapeHtml(text)}</button>
+            `).join('');
+            suggestionsEl.querySelectorAll('.suggestion-btn').forEach(button => {
+                button.addEventListener('click', () => sendMessage(button.textContent.trim()));
+            });
+        }
+
+        function renderMessages() {
+            if (!currentMessages.length) {
+                const avatar = getAvatar();
+                messagesEl.innerHTML = `<div class="empty"><strong>${escapeHtml(avatar.name)} 已就绪</strong><br>${escapeHtml(avatar.welcome || '你可以直接开始提问。')}</div>`;
+                return;
+            }
+
+            const avatar = getAvatar();
+            messagesEl.innerHTML = currentMessages.map(message => {
+                const isUser = message.role === 'user';
+                const meta = isUser ? (currentUser || '用户') : avatar.name;
+                return `
+                    <article class="message ${isUser ? 'user' : 'assistant'}">
+                        <div class="bubble-wrap">
+                            <div class="bubble">${escapeHtml(message.content)}</div>
+                            <div class="meta">${escapeHtml(meta)} · ${formatTime(message.timestamp)}</div>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function renderRetrievalInfo(payload = null) {
+            if (!payload) {
+                retrievalInfo.innerHTML = '<p>本次回答尚未产生检索信息。</p>';
+                return;
+            }
+            const modes = (payload.retrieval_modes || []).join(' / ') || '无';
+            retrievalInfo.innerHTML = `
+                <p>本次回答链路</p>
+                <div class="status-list">
+                    <span class="status-chip">召回条数: ${payload.retrieved_count || 0}</span>
+                    <span class="status-chip">检索模式: ${escapeHtml(modes)}</span>
+                    <span class="status-chip">短期记忆: ${escapeHtml(payload.short_memory_backend || 'in-memory')}</span>
+                </div>
+            `;
+        }
+
+        async function loadUser() {
+            const data = await fetchJson('/api/current_user');
+            if (!data.success) {
+                window.location.href = '/';
+                return false;
+            }
+            currentUser = data.username || '访客';
+            renderUser();
+            return true;
+        }
+
+        async function loadOverview() {
+            const data = await fetchJson('/api/system/overview');
+            renderSystemStatus(data.overview);
+        }
+
+        async function loadAvatars() {
+            const data = await fetchJson('/api/avatars');
+            avatars = data.avatars || [];
+        }
+
+        async function loadCurrentAvatar() {
+            const data = await fetchJson('/api/current_avatar');
+            currentAvatarId = data.avatar_id || data.id || 'doctor';
+        }
+
+        async function loadHistory() {
+            const data = await fetchJson(`/api/history?avatar_id=${encodeURIComponent(currentAvatarId)}`);
+            currentMessages = Array.isArray(data.messages) ? data.messages : [];
+            renderMessages();
+        }
+
+        async function switchAvatar(avatarId) {
+            if (!avatarId || avatarId === currentAvatarId) return;
+            const data = await fetchJson('/api/select_avatar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ avatar_id: avatarId })
+            });
+            currentAvatarId = data.avatar_id || data.id || avatarId;
+            currentMessages = Array.isArray(data.messages) ? data.messages : [];
+            renderRoles();
+            renderHero();
+            renderMessages();
+            renderRetrievalInfo();
+        }
+
+        async function sendMessage(prefillText = '') {
+            if (isSending) return;
+            const text = (prefillText || messageInput.value).trim();
+            if (!text) return;
+
+            isSending = true;
+            sendBtn.disabled = true;
+            if (!prefillText) {
+                messageInput.value = '';
+                autoGrow();
+            }
+
+            currentMessages = [...currentMessages, { role: 'user', content: text, timestamp: new Date().toISOString() }];
+            renderMessages();
+
+            try {
+                const data = await fetchJson('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ avatar_id: currentAvatarId, question: text })
+                });
+                if (!data.success) throw new Error(data.error || '发送失败');
+                currentMessages = Array.isArray(data.messages) ? data.messages : currentMessages;
+                renderMessages();
+                renderRetrievalInfo(data);
+            } catch (error) {
+                currentMessages = [...currentMessages, { role: 'assistant', content: error.message || '发送失败', timestamp: new Date().toISOString() }];
+                renderMessages();
+            } finally {
+                isSending = false;
+                sendBtn.disabled = false;
+            }
+        }
+
+        async function clearCurrentRole() {
+            await fetchJson('/api/clear_history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ avatar_id: currentAvatarId })
+            });
+            currentMessages = [];
+            renderMessages();
+            renderRetrievalInfo();
+        }
+
+        async function logout() {
+            await fetchJson('/api/logout', { method: 'POST' });
+            window.location.href = '/';
+        }
+
+        sendBtn.addEventListener('click', () => sendMessage());
+        logoutBtn.addEventListener('click', logout);
+        clearRoleBtn.addEventListener('click', clearCurrentRole);
+        messageInput.addEventListener('input', autoGrow);
+        messageInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        });
+
+        (async function bootstrap() {
+            const ok = await loadUser();
+            if (!ok) return;
+            await loadOverview();
+            await loadAvatars();
+            await loadCurrentAvatar();
+            renderRoles();
+            renderHero();
+            renderRetrievalInfo();
+            await loadHistory();
+            autoGrow();
+        })();
+    </script>
+</body>
+</html>

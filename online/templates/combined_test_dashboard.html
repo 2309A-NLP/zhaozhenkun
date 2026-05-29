@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>综合测试</title>
+    <style>
+        body { margin:0; font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:linear-gradient(135deg,#f6efe5,#eff7f4); color:#1f2937; }
+        .wrap { max-width:1320px; margin:0 auto; padding:24px; }
+        .panel,.card,.result { background:rgba(255,255,255,.92); border:1px solid rgba(255,255,255,.7); border-radius:24px; box-shadow:0 18px 40px rgba(15,23,42,.12); backdrop-filter:blur(18px); }
+        .panel { padding:24px; margin-bottom:18px; }
+        .toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+        .form-grid { display:grid; grid-template-columns:2fr 140px 160px 120px auto; gap:12px; }
+        .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:18px; }
+        .columns { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+        .card,.result { padding:18px; }
+        .value { font-size:34px; font-weight:800; }
+        .label,.muted,.meta { color:#6b7280; }
+        .muted { line-height:1.7; }
+        input { width:100%; padding:12px 14px; border-radius:14px; border:1px solid rgba(15,23,42,.08); background:#fff; }
+        .btn { border:none; border-radius:16px; padding:12px 16px; cursor:pointer; font:inherit; font-weight:800; }
+        .primary { background:linear-gradient(135deg,#0f766e,#ea580c); color:#fff; }
+        .secondary { background:#fff; border:1px solid rgba(15,23,42,.08); }
+        .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+        .chip { padding:8px 12px; border-radius:999px; background:rgba(15,118,110,.1); color:#0f766e; font-size:12px; font-weight:700; }
+        table { width:100%; border-collapse:collapse; }
+        th,td { padding:12px 10px; border-bottom:1px solid rgba(15,23,42,.08); text-align:left; font-size:14px; }
+        .list { display:grid; gap:12px; }
+        .result strong { display:block; margin-bottom:6px; }
+        .result p { line-height:1.7; margin-bottom:8px; }
+        @media (max-width:1100px) { .columns,.form-grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <section class="panel">
+            <h1>综合测试</h1>
+            <p class="muted">一次性输出混合检索状态、负载均衡状态和并发压力测试结果，便于和单独的压力测试页面一起联动分析。</p>
+            <div class="toolbar">
+                <button class="btn secondary" onclick="window.location.href='/chat'">返回聊天</button>
+                <button class="btn secondary" onclick="window.location.href='/stress'">压力测试</button>
+                <button class="btn secondary" onclick="window.location.href='/retrieval'">混合检索</button>
+                <button class="btn secondary" onclick="window.location.href='/load-balancer'">负载均衡</button>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="form-grid">
+                <input id="query" value="兰蔻小黑瓶具备哪些基础功能？" placeholder="输入测试问题">
+                <input id="concurrency" type="number" value="8" min="1" max="32" placeholder="并发数">
+                <input id="requestCount" type="number" value="40" min="1" max="300" placeholder="请求数">
+                <input id="topk" type="number" value="5" min="1" max="10" placeholder="TopK">
+                <button class="btn primary" onclick="runCombinedTest()">开始综合测试</button>
+            </div>
+        </section>
+
+        <section id="summaryCards" class="grid"></section>
+
+        <section class="columns">
+            <div class="panel">
+                <h3>混合检索摘要</h3>
+                <div id="retrievalSummary" class="chips"></div>
+                <div id="retrievalResults" class="list" style="margin-top:14px;"></div>
+            </div>
+            <div class="panel">
+                <h3>负载均衡摘要</h3>
+                <div id="lbSummary" class="grid" style="margin-top:14px;"></div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>名称</th>
+                            <th>模型</th>
+                            <th>状态</th>
+                            <th>总请求</th>
+                            <th>成功率</th>
+                            <th>平均响应</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lbRows"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h3>压力测试样本</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>序号</th>
+                        <th>状态</th>
+                        <th>耗时</th>
+                        <th>命中数</th>
+                    </tr>
+                </thead>
+                <tbody id="stressRows"></tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        function escapeHtml(text) { const div = document.createElement('div'); div.textContent = text || ''; return div.innerHTML; }
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || `请求失败: ${response.status}`);
+            return data;
+        }
+
+        function renderSummaryCards(result) {
+            const stress = result.stress || {};
+            const retrieval = result.retrieval || {};
+            const loadBalancer = result.load_balancer || {};
+            const cards = [
+                ['总耗时', `${stress.duration_seconds || 0} s`],
+                ['吞吐', `${stress.throughput_rps || 0} req/s`],
+                ['成功率', `${stress.success_rate || 0}%`],
+                ['平均响应', `${stress.avg_ms || 0} ms`],
+                ['检索命中', String(retrieval.hit_count || 0)],
+                ['负载端点', String(loadBalancer.endpoint_count || 0)]
+            ];
+            document.getElementById('summaryCards').innerHTML = cards.map(([label, value]) => `
+                <div class="card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderRetrieval(result) {
+            const retrieval = result.retrieval || {};
+            const timings = retrieval.timings || {};
+            const recallCounts = retrieval.recall_counts || {};
+            const chips = [
+                `模式: ${(retrieval.modes || []).join(' / ') || '无'}`,
+                `总耗时: ${timings.total_ms || 0} ms`,
+                `词法: ${timings.lexical_ms || 0} ms`,
+                `向量: ${timings.vector_ms || 0} ms`,
+                `融合: ${timings.fusion_ms || 0} ms`,
+                `重排: ${timings.rerank_ms || 0} ms`,
+                `BM25: ${recallCounts.bm25 || 0}`,
+                `TF-IDF: ${recallCounts.tfidf || 0}`,
+                `Vector: ${recallCounts.vector || 0}`
+            ];
+            document.getElementById('retrievalSummary').innerHTML = chips.map(text => `<span class="chip">${escapeHtml(text)}</span>`).join('');
+
+            const rows = retrieval.results || [];
+            const target = document.getElementById('retrievalResults');
+            if (!rows.length) {
+                target.innerHTML = '<div class="result"><p>暂无结果</p></div>';
+                return;
+            }
+            target.innerHTML = rows.map(row => `
+                <div class="result">
+                    <strong>${escapeHtml(row.question || '无问题文本')}</strong>
+                    <div class="meta">来源: ${escapeHtml(row.source || 'unknown')} | score=${row.score || 0} | method=${escapeHtml(row.retrieval_method || 'unknown')}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderLoadBalancer(result) {
+            const loadBalancer = result.load_balancer || {};
+            const stats = loadBalancer.stats || [];
+            const cards = [
+                ['已启用', loadBalancer.enabled ? '是' : '否'],
+                ['端点数量', String(loadBalancer.endpoint_count || 0)],
+                ['累计请求', String(loadBalancer.total_requests || 0)],
+                ['平均成功率', `${loadBalancer.avg_success_rate || 0}%`],
+                ['平均响应', `${loadBalancer.avg_response_time || 0} ms`]
+            ];
+            document.getElementById('lbSummary').innerHTML = cards.map(([label, value]) => `
+                <div class="card">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value)}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('lbRows').innerHTML = stats.map(item => `
+                <tr>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.model)}</td>
+                    <td>${escapeHtml(item.status)}</td>
+                    <td>${item.total_requests}</td>
+                    <td>${item.success_rate}%</td>
+                    <td>${item.avg_response_time} ms</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderStress(result) {
+            const rows = (result.stress || {}).rows || [];
+            document.getElementById('stressRows').innerHTML = rows.map((row, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${row.success ? '成功' : '失败'}</td>
+                    <td>${row.latency_ms} ms</td>
+                    <td>${row.hit_count || 0}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function runCombinedTest() {
+            const data = await fetchJson('/api/combined-test/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: document.getElementById('query').value.trim(),
+                    concurrency: Number(document.getElementById('concurrency').value || 8),
+                    request_count: Number(document.getElementById('requestCount').value || 40),
+                    top_k: Number(document.getElementById('topk').value || 5)
+                })
+            });
+            const result = data.result || {};
+            renderSummaryCards(result);
+            renderRetrieval(result);
+            renderLoadBalancer(result);
+            renderStress(result);
+        }
+
+        runCombinedTest();
+    </script>
+</body>
+</html>
