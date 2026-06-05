@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单8 - GraphRAG金融问答系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f7fa;color:#333}
+header{background:linear-gradient(135deg,#1a237e,#283593);color:#fff;padding:20px;text-align:center}
+header h1{font-size:22px}header p{font-size:13px;opacity:.8;margin-top:5px}
+.container{max-width:1200px;margin:20px auto;padding:0 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);padding:20px}
+.card h2{font-size:16px;color:#1a237e;margin-bottom:12px;border-bottom:2px solid #e8eaf6;padding-bottom:8px}
+.card.full{grid-column:1/-1}
+.input-area{display:flex;gap:10px;margin-bottom:15px}
+.input-area input{flex:1;padding:10px 14px;border:2px solid #ddd;border-radius:6px;font-size:14px;outline:none}
+.input-area input:focus{border-color:#283593}
+.input-area button{padding:10px 20px;background:#283593;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px}
+.input-area button:hover{background:#1a237e}
+.controls{display:flex;gap:10px;margin-bottom:15px;align-items:center;flex-wrap:wrap}
+.controls label{font-size:13px;display:flex;align-items:center;gap:5px;cursor:pointer}
+.controls select{padding:6px 10px;border:1px solid #ddd;border-radius:4px;font-size:13px}
+.result-box{background:#f8f9fa;border-radius:6px;padding:14px;margin:10px 0;border-left:4px solid #283593}
+.result-box .meta{font-size:12px;color:#666;margin-top:8px}
+.result-box .answer{line-height:1.6;white-space:pre-wrap}
+#graph-container{width:100%;height:450px;border:1px solid #ddd;border-radius:6px}
+.loading{text-align:center;padding:30px;color:#999}
+.error{color:#d32f2f;padding:10px;background:#ffebee;border-radius:4px;margin:10px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+th,td{border:1px solid #ddd;padding:6px 10px;text-align:center}
+th{background:#e8eaf6;color:#1a237e}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:10px}
+.summary-item{text-align:center;padding:12px;background:#f5f7fa;border-radius:6px}
+.summary-item .num{font-size:22px;font-weight:700;color:#283593}
+.summary-item .label{font-size:12px;color:#666;margin-top:4px}
+.badge{padding:2px 8px;border-radius:10px;font-size:11px;text-align:center}
+.badge.vector{background:#e3f2fd;color:#1565c0}
+.badge.graph{background:#e8f5e9;color:#2e7d32}
+/* 语音输入按钮样式 */
+.mic-btn{width:42px;height:42px;border-radius:50%;border:2px solid #283593;background:#fff;color:#283593;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .3s;flex-shrink:0}
+.mic-btn:hover{background:#e8eaf6}
+.mic-btn.recording{border-color:#f44336;color:#f44336;background:#ffebee;animation:pulse 1s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(244,67,54,.4)}70%{box-shadow:0 0 0 10px rgba(244,67,54,0)}100%{box-shadow:0 0 0 0 rgba(244,67,54,0)}}
+.mic-status{font-size:12px;color:#f44336;margin-left:8px;display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 RAG工单8 - GraphRAG金融问答系统</h1>
+  <p>基于知识图谱增强的金融年报智能问答 | 工单编号: 人工智能NLP-RAG-基于Graph RAG 实现金融问答</p>
+</header>
+
+<div class="container">
+  <!-- 问答交互 -->
+  <div class="card full">
+    <h2>💬 问答交互</h2>
+    <div class="controls">
+      <label><input type="checkbox" id="useGraph" checked> 启用图谱增强</label>
+      <label>语言:
+        <select id="langSelect">
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+        </select>
+      </label>
+    </div>
+    <div class="input-area">
+      <input type="text" id="questionInput" placeholder="请输入金融相关问题，如：平安银行2019年盈利增长因素有哪些？" onkeydown="if(event.key==='Enter')askQuestion()">
+      <button class="mic-btn" id="micBtn" onclick="toggleVoice()" title="语音输入（需浏览器授权麦克风）">🎤</button>
+      <span class="mic-status" id="micStatus">🎤 请说话...</span>
+      <button onclick="askQuestion()">提问</button>
+    </div>
+    <div id="answerArea">💡 在上方输入问题开始问答</div>
+  </div>
+
+  <!-- 知识图谱可视化 -->
+  <div class="card">
+    <h2>🔗 知识图谱</h2>
+    <div id="graph-container">
+      <div class="loading" id="graphLoading">加载知识图谱...</div>
+    </div>
+  </div>
+
+  <!-- 评估摘要 -->
+  <div class="card">
+    <h2>📈 评估对比</h2>
+    <div id="summaryArea">加载评估数据...</div>
+  </div>
+
+  <!-- 问答结果列表 -->
+  <div class="card full">
+    <h2>📋 问答结果列表</h2>
+    <div id="resultsArea">加载问答结果...</div>
+  </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+// ===== 全局状态 =====
+let graphData = {nodes: [], edges: []};
+
+// ===== 提问 =====
+function askQuestion() {
+  const input = document.getElementById('questionInput');
+  const question = input.value.trim();
+  if (!question) return;
+  const useGraph = document.getElementById('useGraph').checked;
+  const lang = document.getElementById('langSelect').value;
+  const area = document.getElementById('answerArea');
+  area.innerHTML = '<div class="loading">⏳ 思考中...</div>';
+
+  fetch('/api/question', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({question, use_graph: useGraph, lang})
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.error) {
+      area.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+      return;
+    }
+    const mode = useGraph ? 'graph' : 'vector';
+    area.innerHTML = `<div class="result-box">
+      <div class="answer">${data.answer.replace(/\n/g, '<br>')}</div>
+      <div class="meta">
+        <span class="badge ${mode}">${data.mode || (useGraph ? 'GraphRAG' : 'Vector')}</span>
+        ⏱ ${data.response_time}秒
+        📄 ${(data.sources || []).join(', ') || '无来源'}
+      </div>
+    </div>`;
+  })
+  .catch(err => {
+    area.innerHTML = `<div class="error">❌ 请求失败: ${err.message}</div>`;
+  });
+}
+
+// ===== 加载图谱可视化 =====
+function loadGraph() {
+  fetch('/api/graph_viz')
+  .then(r => r.json())
+  .then(data => {
+    graphData = data;
+    document.getElementById('graphLoading').style.display = 'none';
+    if (data.nodes && data.nodes.length > 0) {
+      renderGraph(data);
+    }
+  })
+  .catch(() => {});
+}
+
+function renderGraph(data) {
+  const container = document.getElementById('graph-container');
+  const w = container.clientWidth, h = 450;
+  const svg = d3.select(container).append('svg').attr('width', w).attr('height', h);
+  const zoom = d3.zoom().scaleExtent([0.3, 3]).on('zoom', (e) => g.attr('transform', e.transform));
+  svg.call(zoom);
+  const g = svg.append('g');
+
+  const simulation = d3.forceSimulation(data.nodes)
+    .force('link', d3.forceLink(data.edges).id(d => d.name).distance(80))
+    .force('charge', d3.forceManyBody().strength(-200))
+    .force('center', d3.forceCenter(w/2, h/2));
+
+  const link = g.append('g').selectAll('line').data(data.edges).join('line')
+    .attr('stroke', '#999').attr('stroke-width', 1.5).attr('stroke-opacity', 0.6);
+
+  const node = g.append('g').selectAll('circle').data(data.nodes).join('circle')
+    .attr('r', 8).attr('fill', d => d.color || '#666')
+    .call(d3.drag().on('start', (e,d) => {if(!e.active)simulation.alphaTarget(0.3).restart();d.fx=d.x;d.fy=d.y;})
+      .on('drag', (e,d) => {d.fx=e.x;d.fy=e.y;})
+      .on('end', (e,d) => {if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null;}));
+
+  const label = g.append('g').selectAll('text').data(data.nodes).join('text')
+    .text(d => d.name.length > 8 ? d.name.slice(0,8)+'..' : d.name)
+    .attr('font-size', '10px').attr('dx', 12).attr('dy', 4).attr('fill', '#333');
+
+  simulation.on('tick', () => {
+    link.attr('x1', d=>d.source.x).attr('y1', d=>d.source.y).attr('x2', d=>d.target.x).attr('y2', d=>d.target.y);
+    node.attr('cx', d=>d.x).attr('cy', d=>d.y);
+    label.attr('x', d=>d.x).attr('y', d=>d.y);
+  });
+}
+
+// ===== 加载评估摘要 =====
+function loadSummary() {
+  fetch('/api/summary')
+  .then(r => r.json())
+  .then(data => {
+    if (!data.total_questions) {
+      document.getElementById('summaryArea').innerHTML = '<p>暂无评估数据，请先运行 run.py 执行完整流程。</p>';
+      return;
+    }
+    const b = data.before || {}, a = data.after || {};
+    document.getElementById('summaryArea').innerHTML = `
+      <div class="summary-grid">
+        <div class="summary-item"><div class="num">${data.total_questions}</div><div class="label">测试问题数</div></div>
+        <div class="summary-item"><div class="num">${(b.相关性||0).toFixed(2)}</div><div class="label">向量-相关性</div></div>
+        <div class="summary-item"><div class="num">${(a.相关性||0).toFixed(2)}</div><div class="label">Graph-相关性</div></div>
+        <div class="summary-item"><div class="num">${(b.完整性||0).toFixed(2)}</div><div class="label">向量-完整性</div></div>
+        <div class="summary-item"><div class="num">${(a.完整性||0).toFixed(2)}</div><div class="label">Graph-完整性</div></div>
+      </div>
+      <table><tr><th>指标</th><th>向量(Vector)</th><th>GraphRAG</th><th>变化</th></tr>
+      <tr><td>相关性</td><td>${(b.相关性||0).toFixed(2)}</td><td>${(a.相关性||0).toFixed(2)}</td>
+        <td style="color:${data.improvement?.precision_delta>=0?'green':'red'}">${(data.improvement?.precision_delta||0).toFixed(2)}</td></tr>
+      <tr><td>完整性</td><td>${(b.完整性||0).toFixed(2)}</td><td>${(a.完整性||0).toFixed(2)}</td>
+        <td style="color:${data.improvement?.recall_delta>=0?'green':'red'}">${(data.improvement?.recall_delta||0).toFixed(2)}</td></tr>
+      <tr><td>响应时间</td><td>${(b.avg_response_time||0).toFixed(2)}s</td><td>${(a.avg_response_time||0).toFixed(2)}s</td>
+        <td>${(data.improvement?.time_delta||0).toFixed(2)}s</td></tr></table>`;
+  })
+  .catch(() => {});
+}
+
+// ===== 加载问答结果列表 =====
+function loadResults() {
+  fetch('/api/qa_results')
+  .then(r => r.json())
+  .then(data => {
+    if (!data || data.length === 0) {
+      document.getElementById('resultsArea').innerHTML = '<p>暂无问答记录。</p>';
+      return;
+    }
+    let html = '<table><tr><th>#</th><th>问题</th><th>模式</th><th>耗时</th></tr>';
+    data.forEach((item, i) => {
+      const mode = item.qa_result?.mode || '';
+      html += `<tr><td>${i+1}</td><td>${item.question?.slice(0,30)||''}...</td>
+        <td>${mode}</td><td>${item.response_time||0}s</td></tr>`;
+    });
+    html += '</table>';
+    document.getElementById('resultsArea').innerHTML = html;
+  })
+  .catch(() => {});
+}
+
+// ===== 语音输入 =====
+let recognition = null;
+let isRecording = false;
+
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    document.getElementById('micBtn').style.display = 'none';
+    console.warn('浏览器不支持语音识别');
+    return;
+  }
+  recognition = new SpeechRecognition();
+  recognition.lang = 'zh-CN';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = function(event) {
+    const result = event.results[event.results.length - 1];
+    const text = result[0].transcript;
+    document.getElementById('questionInput').value = text;
+    if (result.isFinal) {
+      stopVoice();
+      // 自动提交
+      askQuestion();
+    }
+  };
+
+  recognition.onerror = function(event) {
+    console.warn('语音识别错误:', event.error);
+    stopVoice();
+    if (event.error === 'not-allowed') {
+      document.getElementById('answerArea').innerHTML =
+        '<div class="error">❌ 麦克风权限被拒绝，请在浏览器设置中允许访问麦克风</div>';
+    }
+  };
+
+  recognition.onend = function() {
+    stopVoice();
+  };
+}
+
+function toggleVoice() {
+  if (!recognition) initSpeechRecognition();
+  if (!recognition) return;
+  if (isRecording) {
+    stopVoice();
+  } else {
+    startVoice();
+  }
+}
+
+function startVoice() {
+  try {
+    recognition.start();
+    isRecording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('micBtn').textContent = '⏹';
+    document.getElementById('micStatus').style.display = 'inline';
+    document.getElementById('micStatus').textContent = '🎤 正在聆听...';
+    document.getElementById('questionInput').placeholder = '请说话...';
+  } catch(e) {
+    console.warn('语音启动失败:', e);
+  }
+}
+
+function stopVoice() {
+  try { recognition.stop(); } catch(e) {}
+  isRecording = false;
+  document.getElementById('micBtn').classList.remove('recording');
+  document.getElementById('micBtn').textContent = '🎤';
+  document.getElementById('micStatus').style.display = 'none';
+  document.getElementById('questionInput').placeholder = '请输入金融相关问题...';
+}
+
+// ===== 初始化 =====
+loadGraph();
+loadSummary();
+loadResults();
+</script>
+</body>
+</html>
