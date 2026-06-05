@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+index.html - RAG工单6 混合检索前端页面
+工单编号: 人工智能NLP-RAG-混合检索任务
+功能: 支持三种检索模式切换（向量/全文/混合），
+      可配置检索权重和重排算法，对比三种模式结果
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单6 - 混合检索</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:#f0f2f5;color:#333;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a73e8,#1557b0);color:white;padding:16px 20px;text-align:center}
+.header h1{font-size:20px}.header .sub{font-size:12px;opacity:.85;margin-top:3px}
+.container{max-width:900px;margin:16px auto;padding:0 16px}
+
+/* 配置面板 */
+.config-bar{background:white;border-radius:10px;padding:12px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.config-bar label{font-size:13px;color:#666}
+.config-bar select,.config-bar input{border:1px solid #d9d9d9;border-radius:6px;padding:4px 8px;font-size:13px}
+.mode-btn{padding:5px 14px;border-radius:16px;border:1px solid #d2e3fc;background:#e8f0fe;color:#1a73e8;font-size:12px;cursor:pointer;transition:all .2s}
+.mode-btn.active{background:#1a73e8;color:white;border-color:#1a73e8}
+.mode-btn:hover{background:#d2e3fc}.mode-btn.active:hover{background:#1557b0}
+
+/* 问答区域 */
+.input-area{background:white;border-radius:10px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px}
+.input-area textarea{width:100%;height:60px;padding:10px;border:1px solid #d9d9d9;border-radius:8px;font-size:14px;resize:vertical}
+.input-area textarea:focus{outline:none;border-color:#1a73e8}
+.btn-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn{padding:8px 20px;border:none;border-radius:6px;font-size:13px;cursor:pointer;transition:all .2s}
+.btn-primary{background:#1a73e8;color:white}.btn-primary:hover{background:#1557b0}
+.btn-secondary{background:#f0f0f0;color:#333}.btn-secondary:hover{background:#e0e0e0}
+.btn-green{background:#389e0d;color:white}.btn-green:hover{background:#2d7a0a}
+
+/* 结果卡片 */
+.card{background:white;border-radius:10px;padding:16px;margin-bottom:10px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.card h3{font-size:14px;margin-bottom:8px;color:#1a73e8;border-bottom:1px solid #eee;padding-bottom:6px}
+.mode-tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;margin:2px}
+.tag-v{background:#e6f7ff;color:#1890ff}.tag-f{background:#f6ffed;color:#52c41a}.tag-h{background:#fff7e6;color:#d48806}
+.answer-text{font-size:14px;line-height:1.8;white-space:pre-wrap;padding:10px 0}
+.meta{font-size:12px;color:#999;margin-top:6px}
+.loading{display:none;text-align:center;padding:30px}
+.loading.active{display:block}.spinner{width:30px;height:30px;border:3px solid #e0e0e0;border-top-color:#1a73e8;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 对比表格 */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px}
+.compare-col{background:white;border-radius:8px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.compare-col h4{font-size:13px;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #eee}
+.compare-col .item{font-size:12px;padding:4px 0;border-bottom:1px solid #f5f5f5}
+.compare-col .item:last-child{border:none}
+.score-bar{height:4px;background:#e0e0e0;border-radius:2px;margin-top:2px;overflow:hidden}
+.score-bar .fill{height:100%;background:#1a73e8;border-radius:2px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔍 混合检索策略优化</h1>
+  <div class="sub">工单: 人工智能NLP-RAG-混合检索任务 | 向量检索 · 全文检索 · 混合检索</div>
+</div>
+
+<div class="container">
+
+  <!-- 检索模式配置 -->
+  <div class="config-bar">
+    <label>检索模式:</label>
+    <button class="mode-btn active" data-mode="hybrid" onclick="setMode('hybrid')">🌐 混合</button>
+    <button class="mode-btn" data-mode="vector" onclick="setMode('vector')">📊 向量</button>
+    <button class="mode-btn" data-mode="fulltext" onclick="setMode('fulltext')">📄 全文</button>
+
+    <label style="margin-left:8px">重排:</label>
+    <select id="rerankSelect">
+      <option value="llm">LLM重排</option>
+      <option value="tfidf">TF-IDF重排</option>
+      <option value="adaptive">自适应重排</option>
+    </select>
+
+    <label style="margin-left:8px">向量权重:</label>
+    <input type="range" id="wv" min="0" max="1" step="0.1" value="0.5" style="width:60px" oninput="updateWeights()">
+    <span id="wvLabel">0.5</span>
+
+    <label>全文权重:</label>
+    <input type="range" id="wf" min="0" max="1" step="0.1" value="0.5" style="width:60px" oninput="updateWeights()">
+    <span id="wfLabel">0.5</span>
+  </div>
+
+  <!-- 输入区域 -->
+  <div class="input-area">
+    <textarea id="input" placeholder="输入问题，例如：武汉兴图新科电子股份有限公司注册资本是多少？"></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="ask()">🔍 检索</button>
+      <button class="btn btn-green" onclick="compare()">📊 对比三种模式</button>
+      <button class="btn btn-secondary" onclick="clearAll()">🗑️ 清空</button>
+    </div>
+  </div>
+
+  <div class="loading" id="loading"><div class="spinner"></div><div>检索中...</div></div>
+
+  <!-- 单模式结果 -->
+  <div id="resultArea" style="display:none">
+    <div class="card" id="answerCard"></div>
+  </div>
+
+  <!-- 三种模式对比 -->
+  <div id="compareArea" style="display:none"></div>
+
+</div>
+
+<script>
+let currentMode = 'hybrid';
+
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+}
+
+function updateWeights() {
+  document.getElementById('wvLabel').textContent = document.getElementById('wv').value;
+  document.getElementById('wfLabel').textContent = document.getElementById('wf').value;
+}
+
+async function ask() {
+  const q = document.getElementById('input').value.trim();
+  if (!q) return;
+
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('compareArea').style.display = 'none';
+
+  try {
+    const res = await fetch('/ask', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        question: q,
+        mode: currentMode,
+        rerank_method: document.getElementById('rerankSelect').value,
+        weight_vector: parseFloat(document.getElementById('wv').value),
+        weight_fulltext: parseFloat(document.getElementById('wf').value),
+      })
+    });
+    const data = await res.json();
+    document.getElementById('loading').classList.remove('active');
+
+    const modeLabels = {vector:'📊 向量检索', fulltext:'📄 全文检索', hybrid:'🌐 混合检索'};
+    const tagClasses = {vector:'tag-v', fulltext:'tag-f', hybrid:'tag-h'};
+    const confMap = {high:'<span style="color:#389e0d">高</span>', medium:'<span style="color:#d48806">中</span>', low:'<span style="color:#cf1322">低</span>'};
+
+    let sourcesHtml = '';
+    if (data.sources && data.sources.length) {
+      sourcesHtml = '<div style="margin-top:8px;font-size:12px;color:#666"><strong>📎 来源:</strong><br>';
+      data.sources.forEach(s => {
+        sourcesHtml += `<span style="display:inline-block;background:#f5f5f5;padding:2px 8px;border-radius:10px;margin:2px">第${s.page_num}页 (${(s.score*100).toFixed(0)}%)</span>`;
+      });
+      sourcesHtml += '</div>';
+    }
+
+    document.getElementById('answerCard').innerHTML = `
+      <h3>${modeLabels[data.mode] || '检索结果'}</h3>
+      <div class="answer-text">${data.answer}</div>
+      <div class="meta">
+        <span class="mode-tag ${tagClasses[data.mode] || 'tag-h'}">${data.mode || 'hybrid'}</span>
+        🎯 ${confMap[data.confidence] || data.confidence}
+        ⏱️ ${(data.response_time||0).toFixed(2)}秒
+        📄 ${data.result_count||0}个结果
+        🔄 ${data.rerank_method||'llm'}
+      </div>
+      ${sourcesHtml}
+    `;
+    document.getElementById('resultArea').style.display = 'block';
+
+  } catch(e) {
+    document.getElementById('loading').classList.remove('active');
+    document.getElementById('answerCard').innerHTML = `<div style="color:#cf1322">❌ 请求失败: ${e.message}</div>`;
+    document.getElementById('resultArea').style.display = 'block';
+  }
+}
+
+async function compare() {
+  const q = document.getElementById('input').value.trim();
+  if (!q) return;
+
+  document.getElementById('loading').classList.add('active');
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('compareArea').style.display = 'none';
+
+  try {
+    const res = await fetch('/compare', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({question: q})
+    });
+    const data = await res.json();
+    document.getElementById('loading').classList.remove('active');
+
+    const labels = {vector:'📊 向量检索', fulltext:'📄 全文检索', hybrid:'🌐 混合检索'};
+    const colors = {vector:'#1890ff', fulltext:'#52c41a', hybrid:'#d48806'};
+
+    let html = '<h3 style="margin-bottom:10px">📊 三种检索模式对比</h3><div class="compare-grid">';
+
+    for (const mode of ['vector','fulltext','hybrid']) {
+      const results = data[mode]?.results || [];
+      html += `<div class="compare-col"><h4 style="color:${colors[mode]}">${labels[mode]}</h4>`;
+      html += `<div style="font-size:11px;color:#999;margin-bottom:4px">${results.length}条结果</div>`;
+      results.slice(0, 5).forEach(r => {
+        const score = (r.score || 0) * 100;
+        html += `<div class="item"><div>${r.content?.substring(0, 60)||''}...</div>
+          <div class="score-bar"><div class="fill" style="width:${score}%"></div></div>
+          <div style="font-size:10px;color:#999">第${r.page_num||'?'}页 ${score.toFixed(0)}%</div></div>`;
+      });
+      html += '</div>';
+    }
+
+    html += '</div>';
+    document.getElementById('compareArea').innerHTML = html;
+    document.getElementById('compareArea').style.display = 'block';
+
+  } catch(e) {
+    document.getElementById('loading').classList.remove('active');
+    document.getElementById('compareArea').innerHTML = `<div style="color:#cf1322">❌ 对比失败: ${e.message}</div>`;
+    document.getElementById('compareArea').style.display = 'block';
+  }
+}
+
+function clearAll() {
+  document.getElementById('input').value = '';
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('compareArea').style.display = 'none';
+}
+</script>
+</body>
+</html>
