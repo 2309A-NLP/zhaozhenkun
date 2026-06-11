@@ -1,0 +1,289 @@
+From 151d791d7e1c627b4fd3040a3eee1e588e6260b6 Mon Sep 17 00:00:00 2001
+From: Q578TDD <3132639419@qq.com>
+Date: Thu, 11 Jun 2026 10:53:47 +0800
+Subject: [PATCH] fix: prevent removeChild DOM error in markdown rendering
+
+- Add MarkdownErrorBoundary component using react-error-boundary
+- Disable rehypeRaw plugin during streaming to avoid DOM conflicts
+- Use useDeferredValue to defer rendering during rapid content updates
+- Add try-catch around removeChild in modal-manage for safety
+
+Fixes: NotFoundError on removeChild during chat streaming
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ web/src/components/markdown-content/index.tsx | 14 ++++-
+ .../markdown-error-boundary/index.tsx         | 56 +++++++++++++++++++
+ web/src/components/message-item/index.tsx     | 10 ++--
+ .../next-markdown-content/index.tsx           | 14 ++++-
+ .../components/next-message-item/index.tsx    | 15 +++--
+ web/src/components/ui/modal/modal-manage.tsx  |  8 ++-
+ 6 files changed, 97 insertions(+), 20 deletions(-)
+ create mode 100644 web/src/components/markdown-error-boundary/index.tsx
+
+diff --git a/web/src/components/markdown-content/index.tsx b/web/src/components/markdown-content/index.tsx
+index 3c6dfd927..184205d85 100644
+--- a/web/src/components/markdown-content/index.tsx
++++ b/web/src/components/markdown-content/index.tsx
+@@ -5,7 +5,7 @@ import { citationMarkerReg } from '@/utils/citation-utils';
+ import { getExtension } from '@/utils/document-util';
+ import { getDirAttribute } from '@/utils/text-direction';
+ import DOMPurify from 'dompurify';
+-import { useCallback, useEffect, useMemo } from 'react';
++import { useCallback, useEffect, useMemo, useDeferredValue } from 'react';
+ import Markdown from 'react-markdown';
+ import SyntaxHighlighter from 'react-syntax-highlighter';
+ import rehypeKatex from 'rehype-katex';
+@@ -52,6 +52,7 @@ const MarkdownContent = ({
+   reference,
+   clickDocumentButton,
+   content,
++  loading,
+ }: {
+   content: string;
+   loading: boolean;
+@@ -75,6 +76,10 @@ const MarkdownContent = ({
+     return pipe(replaceThinkToSection, replaceRetrievingToSection, preprocessLaTeX)(nextText);
+   }, [content, t]);
+ 
++  // Defer rendering during streaming to avoid React DOM reconciliation conflicts
++  // caused by rehype-raw + rapid content updates
++  const deferredContent = useDeferredValue(contentWithCursor);
++
+   useEffect(() => {
+     const docAggs = reference?.doc_aggs;
+     setDocumentIds(Array.isArray(docAggs) ? docAggs.map((x) => x.doc_id) : []);
+@@ -260,7 +265,10 @@ const MarkdownContent = ({
+   return (
+     <div dir={dir} className={styles.markdownContentWrapper}>
+       <Markdown
+-        rehypePlugins={[rehypeWrapReference, rehypeKatex, rehypeRaw]}
++        rehypePlugins={loading
++          ? [rehypeWrapReference, rehypeKatex]
++          : [rehypeWrapReference, rehypeKatex, rehypeRaw]
++        }
+         remarkPlugins={MarkdownRemarkPlugins}
+         components={
+           {
+@@ -292,7 +300,7 @@ const MarkdownContent = ({
+           } as any
+         }
+       >
+-        {contentWithCursor}
++        {deferredContent}
+       </Markdown>
+     </div>
+   );
+diff --git a/web/src/components/markdown-error-boundary/index.tsx b/web/src/components/markdown-error-boundary/index.tsx
+new file mode 100644
+index 000000000..0661fdc32
+--- /dev/null
++++ b/web/src/components/markdown-error-boundary/index.tsx
+@@ -0,0 +1,56 @@
++import { ErrorBoundary } from 'react-error-boundary';
++import { Button } from '@/components/ui/button';
++import { useTranslation } from 'react-i18next';
++
++// Catches DOM reconciliation errors (e.g. removeChild NotFoundError)
++// caused by rehype-raw + streaming markdown content
++function MarkdownErrorFallback({
++  error: _error,
++  resetErrorBoundary,
++}: {
++  error: Error;
++  resetErrorBoundary: () => void;
++}) {
++  const { t } = useTranslation();
++
++  return (
++    <div className="text-sm text-text-secondary py-2 space-y-2">
++      <p>{t('chat.markdownRenderError', 'Markdown rendering error')}</p>
++      <Button variant="outline" size="sm" onClick={resetErrorBoundary}>
++        {t('common.retry', 'Retry')}
++      </Button>
++    </div>
++  );
++}
++
++interface MarkdownErrorBoundaryProps {
++  children: React.ReactNode;
++  messageId?: string;
++}
++
++// Reset the error boundary when messageId changes (new message)
++export function MarkdownErrorBoundary({
++  children,
++  messageId,
++}: MarkdownErrorBoundaryProps) {
++  return (
++    <ErrorBoundary
++      FallbackComponent={MarkdownErrorFallback}
++      resetKeys={[messageId]}
++      onError={(error) => {
++        // Only catch DOM-related errors; let others propagate
++        if (
++          error instanceof DOMException ||
++          error.name === 'NotFoundError' ||
++          error.message?.includes('removeChild')
++        ) {
++          console.warn('MarkdownErrorBoundary caught DOM error:', error.message);
++        } else {
++          console.error('MarkdownErrorBoundary caught unexpected error:', error);
++        }
++      }}
++    >
++      {children}
++    </ErrorBoundary>
++  );
++}
+diff --git a/web/src/components/message-item/index.tsx b/web/src/components/message-item/index.tsx
+index 1c0048e4e..86eb7ad78 100644
+--- a/web/src/components/message-item/index.tsx
++++ b/web/src/components/message-item/index.tsx
+@@ -10,9 +10,9 @@ import { memo, useCallback, useMemo } from 'react';
+ 
+ import { IRegenerateMessage, IRemoveMessageById } from '@/hooks/logic-hooks';
+ import { cn } from '@/lib/utils';
+-import { isEmpty } from 'lodash';
+ import { DocumentDownloadButton } from '../document-download-button';
+ import MarkdownContent from '../markdown-content';
++import { MarkdownErrorBoundary } from '../markdown-error-boundary';
+ import { ReferenceDocumentList } from '../next-message-item/reference-document-list';
+ import { ReferenceImageList } from '../next-message-item/reference-image-list';
+ import { UploadedMessageFiles } from '../next-message-item/uploaded-message-files';
+@@ -135,7 +135,7 @@ const MessageItem = ({
+               ></UserGroupButton>
+             )}
+             {/* Show message content if there's any text besides the download */}
+-            {(messageContent || sendLoading) && (
++            {messageContent && (
+               <div
+                 className={cn(
+                   isAssistant
+@@ -146,16 +146,14 @@ const MessageItem = ({
+                   { '!bg-bg-card': !isAssistant },
+                 )}
+               >
+-                {sendLoading && isEmpty(messageContent) ? (
+-                  'running...'
+-                ) : (
++                <MarkdownErrorBoundary messageId={item.id}>
+                   <MarkdownContent
+                     loading={loading}
+                     content={messageContent}
+                     reference={reference}
+                     clickDocumentButton={clickDocumentButton}
+                   ></MarkdownContent>
+-                )}
++                </MarkdownErrorBoundary>
+               </div>
+             )}
+             {isAssistant && (
+diff --git a/web/src/components/next-markdown-content/index.tsx b/web/src/components/next-markdown-content/index.tsx
+index 0e8e3f823..2abc1a786 100644
+--- a/web/src/components/next-markdown-content/index.tsx
++++ b/web/src/components/next-markdown-content/index.tsx
+@@ -6,7 +6,7 @@ import { getExtension } from '@/utils/document-util';
+ import { downloadFileFromBlob } from '@/utils/file-util';
+ import request from '@/utils/request';
+ import DOMPurify from 'dompurify';
+-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
++import { memo, useCallback, useEffect, useMemo, useState, useDeferredValue } from 'react';
+ import Markdown, { defaultUrlTransform } from 'react-markdown';
+ import SyntaxHighlighter from 'react-syntax-highlighter';
+ import rehypeKatex from 'rehype-katex';
+@@ -159,6 +159,7 @@ function MarkdownContent({
+   reference,
+   clickDocumentButton,
+   content,
++  loading,
+ }: {
+   content: string;
+   loading: boolean;
+@@ -185,6 +186,10 @@ function MarkdownContent({
+     )(nextText);
+   }, [content, t]);
+ 
++  // Defer rendering during streaming to avoid React DOM reconciliation conflicts
++  // caused by rehype-raw + rapid content updates
++  const deferredContent = useDeferredValue(contentWithCursor);
++
+   useEffect(() => {
+     const docAggs = reference?.doc_aggs;
+     setDocumentIds(Array.isArray(docAggs) ? docAggs.map((x) => x.doc_id) : []);
+@@ -357,7 +362,10 @@ function MarkdownContent({
+   return (
+     <div dir={dir} className={styles.markdownContentWrapper}>
+       <Markdown
+-        rehypePlugins={[rehypeWrapReference, rehypeKatex, rehypeRaw]}
++        rehypePlugins={loading
++          ? [rehypeWrapReference, rehypeKatex]
++          : [rehypeWrapReference, rehypeKatex, rehypeRaw]
++        }
+         remarkPlugins={MarkdownRemarkPlugins}
+         urlTransform={(url, key) => {
+           if (
+@@ -433,7 +441,7 @@ function MarkdownContent({
+           } as any
+         }
+       >
+-        {contentWithCursor}
++        {deferredContent}
+       </Markdown>
+     </div>
+   );
+diff --git a/web/src/components/next-message-item/index.tsx b/web/src/components/next-message-item/index.tsx
+index ac63a6661..ce04d0e77 100644
+--- a/web/src/components/next-message-item/index.tsx
++++ b/web/src/components/next-message-item/index.tsx
+@@ -27,6 +27,7 @@ import { isEmpty } from 'lodash';
+ import { Atom, ChevronDown, ChevronUp } from 'lucide-react';
+ import { DocumentDownloadButton } from '../document-download-button';
+ import MarkdownContent from '../next-markdown-content';
++import { MarkdownErrorBoundary } from '../markdown-error-boundary';
+ import { RAGFlowAvatar } from '../ragflow-avatar';
+ import SvgIcon from '../svg-icon';
+ import { useTheme } from '../theme-provider';
+@@ -144,12 +145,14 @@ function MessageItem({
+         ) : sendLoading && isEmpty(messageContent) ? (
+           <>{!isShare && 'running...'}</>
+         ) : (
+-          <MarkdownContent
+-            loading={loading}
+-            content={messageContent}
+-            reference={reference}
+-            clickDocumentButton={clickDocumentButton}
+-          ></MarkdownContent>
++          <MarkdownErrorBoundary messageId={item.id}>
++            <MarkdownContent
++              loading={loading}
++              content={messageContent}
++              reference={reference}
++              clickDocumentButton={clickDocumentButton}
++            ></MarkdownContent>
++          </MarkdownErrorBoundary>
+         )}
+       </div>
+     );
+diff --git a/web/src/components/ui/modal/modal-manage.tsx b/web/src/components/ui/modal/modal-manage.tsx
+index 54af5a7c3..fa5ee8f19 100644
+--- a/web/src/components/ui/modal/modal-manage.tsx
++++ b/web/src/components/ui/modal/modal-manage.tsx
+@@ -47,8 +47,12 @@ export const createPortalModal = () => {
+   const destroy = () => {
+     if (root && container) {
+       root.unmount();
+-      if (container.parentNode) {
+-        container.parentNode.removeChild(container);
++      try {
++        if (container.parentNode) {
++          container.parentNode.removeChild(container);
++        }
++      } catch {
++        // container may have already been removed by React reconciliation
+       }
+       root = null;
+     }
+-- 
+2.43.0
+
