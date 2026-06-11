@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG 性能瓶颈识别与优化 - 对话系统</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, 'Microsoft YaHei', sans-serif; background:#f0f2f5; height:100vh; display:flex; }
+.sidebar { width:320px; background:#fff; border-right:1px solid #e8e8e8; display:flex; flex-direction:column; }
+.sidebar h2 { padding:20px; font-size:16px; color:#333; border-bottom:1px solid #e8e8e8; }
+.sidebar .stats { padding:15px 20px; flex:1; overflow-y:auto; font-size:13px; color:#666; }
+.stat-item { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f5f5f5; }
+.stat-label { color:#999; }
+.stat-value { font-weight:500; color:#333; }
+.stat-bar { height:6px; background:#e8e8e8; border-radius:3px; margin-top:4px; overflow:hidden; }
+.stat-bar-inner { height:100%; border-radius:3px; transition:width .3s; }
+.chart-title { font-size:13px; font-weight:600; color:#333; margin:15px 0 10px; }
+.bench-box { background:#f8f9fa; border-radius:8px; padding:12px; margin:10px 0; font-size:12px; }
+.bench-row { display:flex; justify-content:space-between; padding:4px 0; }
+.bench-label { color:#999; }
+.bench-val { font-weight:600; }
+.main { flex:1; display:flex; flex-direction:column; }
+.header { background:#fff; padding:15px 30px; border-bottom:1px solid #e8e8e8; display:flex; align-items:center; gap:10px; }
+.header h1 { font-size:18px; color:#333; }
+.header .badge { background:#e6f7ff; color:#1890ff; font-size:12px; padding:2px 8px; border-radius:4px; }
+.chat-area { flex:1; overflow-y:auto; padding:20px 30px; }
+.msg { max-width:75%; margin-bottom:16px; animation:fadeIn .3s; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+.msg-user { margin-left:auto; }
+.msg-bubble { padding:12px 16px; border-radius:12px; line-height:1.6; font-size:14px; white-space:pre-wrap; }
+.msg-user .msg-bubble { background:#1890ff; color:#fff; border-radius:12px 12px 2px 12px; }
+.msg-bot .msg-bubble { background:#fff; color:#333; border-radius:12px 12px 12px 2px; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.msg-time { font-size:11px; color:#bbb; margin-top:4px; text-align:right; }
+.msg-bot .timing-bar { display:flex; gap:4px; margin-top:8px; height:8px; border-radius:4px; overflow:hidden; }
+.msg-bot .timing-seg { height:100%; transition:width .5s; position:relative; cursor:pointer; }
+.msg-bot .timing-seg:hover::after { content:attr(data-label) ' ' attr(data-time); position:absolute; bottom:100%; left:50%; transform:translateX(-50%); background:#333; color:#fff; font-size:11px; padding:2px 6px; border-radius:4px; white-space:nowrap; z-index:10; }
+.msg-bot .total-time { font-size:11px; color:#999; margin-top:4px; }
+.input-area { background:#fff; border-top:1px solid #e8e8e8; padding:15px 30px; display:flex; gap:10px; align-items:flex-end; }
+.input-area textarea { flex:1; border:1px solid #d9d9d9; border-radius:8px; padding:10px 12px; font-size:14px; resize:none; outline:none; min-height:44px; max-height:120px; line-height:1.5; font-family:inherit; }
+.input-area textarea:focus { border-color:#1890ff; box-shadow:0 0 0 2px rgba(24,144,255,.2); }
+.input-area button { background:#1890ff; color:#fff; border:none; border-radius:8px; padding:10px 24px; font-size:14px; cursor:pointer; transition:background .2s; height:44px; }
+.input-area button:hover { background:#40a9ff; }
+.input-area button:disabled { background:#d9d9d9; cursor:not-allowed; }
+.typing { display:flex; gap:4px; padding:12px 16px; align-items:center; }
+.typing span { width:6px; height:6px; border-radius:50%; background:#d9d9d9; animation:bounce 1.4s infinite; }
+.typing span:nth-child(2) { animation-delay:.2s; }
+.typing span:nth-child(3) { animation-delay:.4s; }
+@keyframes bounce { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-6px)} }
+.error-bubble { background:#fff2f0 !important; border:1px solid #ffccc7; color:#cf1322; }
+.btn-bench { background:#f5f5f5; border:1px solid #d9d9d9; border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; margin-top:10px; width:100%; color:#666; }
+.btn-bench:hover { background:#e8e8e8; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <h2>📊 RAG 性能监控</h2>
+  <div class="stats" id="statsPanel">
+    <div class="chart-title">当前查询耗时</div>
+    <div id="currentStats">
+      <div style="color:#ccc;text-align:center;padding:30px 0;font-size:13px;">等待首次查询...</div>
+    </div>
+    <div class="chart-title">基准测试对比</div>
+    <button class="btn-bench" onclick="runBenchmark()">🚀 运行基准测试</button>
+    <div id="benchResult"></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="header">
+    <h1>📚 RAG 知识问答</h1>
+    <span class="badge">教师(语文).pdf · 732块</span>
+    <span class="badge" id="modelBadge">MiMo API</span>
+  </div>
+
+  <div class="chat-area" id="chatArea">
+    <div style="text-align:center;color:#bbb;padding:60px 0;">
+      <div style="font-size:40px;margin-bottom:10px;">💬</div>
+      <div>输入问题开始对话吧</div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <textarea id="inputBox" rows="1" placeholder="输入你的问题..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send();}"></textarea>
+    <button id="sendBtn" onclick="send()">发送</button>
+  </div>
+</div>
+
+<script>
+const chatArea = document.getElementById('chatArea');
+const inputBox = document.getElementById('inputBox');
+const sendBtn = document.getElementById('sendBtn');
+
+function addMsg(text, role, stages, totalTime) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role === 'user' ? 'msg-user' : 'msg-bot');
+
+  if (role === 'bot' && text.startsWith('[生成失败]')) {
+    div.innerHTML = `<div class="msg-bubble error-bubble">❌ ${text}</div>`;
+  } else if (role === 'bot') {
+    let timingHtml = '';
+    if (stages) {
+      const colors = ['#1890ff','#52c41a','#faad14','#f5222d','#722ed1','#13c2c2'];
+      const stageNames = Object.keys(stages);
+      const total = Object.values(stages).reduce((s, v) => s + v.seconds, 0);
+      const totalStr = total.toFixed(2);
+      timingHtml = '<div class="timing-bar">';
+      stageNames.forEach((name, i) => {
+        const pct = total > 0 ? (stages[name].seconds / total * 100) : 0;
+        if (pct > 0) {
+          timingHtml += `<div class="timing-seg" style="width:${pct}%;background:${colors[i%colors.length]}" data-label="${name}" data-time="${stages[name].seconds.toFixed(2)}s/${stages[name].percent}%"></div>`;
+        }
+      });
+      timingHtml += '</div>';
+      timingHtml += `<div class="total-time">⏱ 总耗时: ${totalStr}s</div>`;
+    }
+    div.innerHTML = `<div class="msg-bubble">${text}</div>${timingHtml}<div class="msg-time">RAG · 来自教师(语文).pdf</div>`;
+  } else {
+    div.innerHTML = `<div class="msg-bubble">${text}</div><div class="msg-time">${new Date().toLocaleTimeString()}</div>`;
+  }
+
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'msg msg-bot';
+  div.id = 'typingIndicator';
+  div.innerHTML = `<div class="msg-bubble typing"><span></span><span></span><span></span></div>`;
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function hideTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function updateStats(stages) {
+  const panel = document.getElementById('currentStats');
+  if (!stages || Object.keys(stages).length === 0) {
+    panel.innerHTML = '<div style="color:#ccc;text-align:center;padding:30px 0;font-size:13px;">等待查询...</div>';
+    return;
+  }
+  const colors = ['#1890ff','#52c41a','#faad14','#f5222d','#722ed1','#13c2c2'];
+  let html = '';
+  const stageNames = Object.keys(stages);
+  stageNames.forEach((name, i) => {
+    const s = stages[name];
+    html += `<div class="stat-item"><span class="stat-label">${name}</span><span class="stat-value">${s.seconds.toFixed(2)}s</span></div>`;
+    html += `<div class="stat-bar"><div class="stat-bar-inner" style="width:${s.percent}%;background:${colors[i%colors.length]}"></div></div>`;
+  });
+  const total = Object.values(stages).reduce((s, v) => s + v.seconds, 0);
+  html += `<div class="stat-item" style="margin-top:8px;font-weight:600;border-bottom:none;"><span class="stat-label">总耗时</span><span class="stat-value">${total.toFixed(2)}s</span></div>`;
+  panel.innerHTML = html;
+}
+
+async function send() {
+  const q = inputBox.value.trim();
+  if (!q) return;
+  inputBox.value = '';
+  sendBtn.disabled = true;
+  addMsg(q, 'user');
+  showTyping();
+  try {
+    const resp = await fetch('/ask', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({question: q})
+    });
+    const data = await resp.json();
+    hideTyping();
+    if (data.error) {
+      addMsg('❌ ' + data.error, 'bot');
+    } else {
+      addMsg(data.answer, 'bot', data.stages, data.total_time);
+      updateStats(data.stages);
+    }
+  } catch(e) {
+    hideTyping();
+    addMsg('❌ 请求失败: ' + e.message, 'bot');
+  }
+  sendBtn.disabled = false;
+  inputBox.focus();
+}
+
+async function runBenchmark() {
+  const btn = document.querySelector('.btn-bench');
+  btn.disabled = true;
+  btn.textContent = '⏳ 运行中(约5分钟)...';
+  document.getElementById('benchResult').innerHTML = '<div style="color:#999;text-align:center;padding:10px;">运行中，请等待...</div>';
+  try {
+    const resp = await fetch('/benchmark', {method:'POST'});
+    const data = await resp.json();
+    const c = data.comparison;
+    const a = data.analysis;
+    let html = '<div class="bench-box">';
+    html += `<div class="bench-row"><span class="bench-label">优化前平均</span><span class="bench-val" style="color:#f5222d;">${c.baseline_avg_seconds.toFixed(2)}s</span></div>`;
+    html += `<div class="bench-row"><span class="bench-label">优化后平均</span><span class="bench-val" style="color:#52c41a;">${c.optimized_avg_seconds.toFixed(2)}s</span></div>`;
+    html += `<div class="bench-row"><span class="bench-label">提升</span><span class="bench-val" style="color:#1890ff;">↑${c.improvement_percent}%</span></div>`;
+    html += `<div class="bench-row"><span class="bench-label">瓶颈</span><span class="bench-val">${a.conclusion}</span></div>`;
+    html += `<div class="bench-row"><span class="bench-label">3秒达标</span><span class="bench-val" style="color:${c.under_3s_threshold?'#52c41a':'#f5222d'};">${c.under_3s_threshold?'✅是':'❌否'}</span></div>`;
+    html += '</div>';
+    document.getElementById('benchResult').innerHTML = html;
+  } catch(e) {
+    document.getElementById('benchResult').innerHTML = '<div style="color:#f5222d;">❌ 基准测试失败</div>';
+  }
+  btn.disabled = false;
+  btn.textContent = '🚀 运行基准测试';
+}
+</script>
+
+</body>
+</html>

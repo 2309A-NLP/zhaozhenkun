@@ -1,0 +1,28 @@
+         8701022 function calls (8488017 primitive calls) in 16.477 seconds
+
+   Ordered by: cumulative time
+   List reduced from 16577 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+     2353    7.891    0.003    7.994    0.003 {method 'to' of 'torch._C.TensorBase' objects}
+      786    0.001    0.000    7.993    0.010 /home/zzy/miniconda3/lib/python3.13/site-packages/torch/nn/modules/module.py:1361(convert)
+       20    0.000    0.000    4.859    0.243 /home/zzy/miniconda3/lib/python3.13/site-packages/torch/_jit_internal.py:1046(_overload)
+      127    2.503    0.020    2.811    0.022 /home/zzy/miniconda3/lib/python3.13/site-packages/torch/_library/custom_ops.py:607(_register_to_dispatcher)
+        1    0.000    0.000    0.908    0.908 /home/zzy/miniconda3/lib/python3.13/site-packages/nltk/__init__.py:1(<module>)
+        1    0.000    0.000    0.789    0.789 /home/zzy/miniconda3/lib/python3.13/site-packages/torch/_dynamo/variables/builtin.py:1(<module>)
+        1    0.000    0.000    0.788    0.788 /home/zzy/miniconda3/lib/python3.13/site-packages/torch/_dynamo/variables/streams.py:1(<module>)
+        1    0.000    0.000    0.765    0.765 /home/zzy/miniconda3/lib/python3.13/site-packages/transformers/models/auto/tokenization_auto.py:962(from_pretrained)
+        1    0.008    0.008    0.756    0.756 /home/zzy/miniconda3/lib/python3.13/site-packages/transformers/tokenization_utils_base.py:1834(from_pretrained)
+        1    0.000    0.000    0.738    0.738 /home/zzy/miniconda3/lib/python3.13/site-packages/transformers/tokenization_utils_base.py:2127(_from_pretrained)
+        1    0.000    0.000    0.670    0.670 /home/zzy/miniconda3/lib/python3.13/site-packages/nltk/collocations.py:1(<module>)
+        1    0.000    0.000    0.670    0.670 /home/zzy/miniconda3/lib/python3.13/site-packages/nltk/metrics/__init__.py:1(<module>)
+        1    0.000    0.000    0.667    0.667 /home/zzy/miniconda3/lib/python3.13/site-packages/nltk/metrics/association.py:1(<module>)
+        1    0.000    0.000    0.659    0.659 /home/zzy/miniconda3/lib/python3.13/site-packages/scipy/stats/__init__.py:1(<module>)
+        1    0.000    0.000    0.626    0.626 /mnt/c/Users/31326/Desktop/rag工单13/优化/profiler.py:41(_run)
+        1    0.001    0.001    0.626    0.626 /mnt/c/Users/31326/Desktop/rag工单13/研发/rag_pipeline.py:91(rag_query)
+        1    0.000    0.000    0.607    0.607 /home/zzy/miniconda3/lib/python3.13/site-packages/transformers/utils/auto_docstring.py:1(<module>)
+        1    0.000    0.000    0.606    0.606 /home/zzy/miniconda3/lib/python3.13/site-packages/transformers/utils/generic.py:1(<module>)
+        1    0.000    0.000    0.603    0.603 /home/zzy/miniconda3/lib/python3.13/site-packages/transformers/model_debugging_utils.py:1(<module>)
+        1    0.000    0.000    0.602    0.602 /home/zzy/miniconda3/lib/python3.13/site-packages/torch/distributed/tensor/__init__.py:1(<module>)
+
+
