@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LightRAG 金融文档问答系统</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; height: 100vh; display: flex; flex-direction: column; }
+  .header { background: linear-gradient(135deg, #6C5CE7, #0984E3); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header .subtitle { font-size: 12px; opacity: 0.85; }
+  .mode-bar { display: flex; gap: 8px; padding: 10px 24px; background: #fff; border-bottom: 1px solid #e8e8e8; }
+  .mode-btn { padding: 6px 16px; border: 2px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; font-size: 13px; transition: all .2s; }
+  .mode-btn.active { border-color: #6C5CE7; background: #6C5CE7; color: #fff; }
+  .mode-btn:hover { border-color: #6C5CE7; }
+  .chat-area { flex: 1; overflow-y: auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; line-height: 1.6; font-size: 14px; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: #6C5CE7; color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: #fff; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .msg.bot .source-tag { display: inline-block; font-size: 11px; background: #e8e8e8; color: #666; border-radius: 4px; padding: 2px 6px; margin-right: 4px; }
+  .msg.bot .context-box { margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666; max-height: 200px; overflow-y: auto; }
+  .input-area { padding: 12px 24px; background: #fff; border-top: 1px solid #e8e8e8; display: flex; gap: 8px; align-items: center; }
+  .input-area input { flex: 1; padding: 10px 14px; border: 2px solid #ddd; border-radius: 24px; font-size: 14px; outline: none; transition: border .2s; }
+  .input-area input:focus { border-color: #6C5CE7; }
+  .input-area button { padding: 10px 24px; background: #6C5CE7; color: #fff; border: none; border-radius: 24px; font-size: 14px; cursor: pointer; transition: background .2s; }
+  .input-area button:hover { background: #5f4bc7; }
+  .input-area button:disabled { background: #ccc; cursor: not-allowed; }
+  .loading { display: none; align-self: flex-start; color: #999; font-size: 13px; padding: 8px 16px; }
+  .loading.show { display: block; }
+  .stats { padding: 6px 24px; background: #f8f9fa; border-bottom: 1px solid #e8e8e8; font-size: 12px; color: #999; display: flex; gap: 16px; }
+  .thinking { color: #999; font-style: italic; font-size: 12px; }
+  pre { white-space: pre-wrap; word-break: break-word; }
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <h1>📄 LightRAG 金融文档问答</h1>
+    <div class="subtitle">招股说明书知识图谱 · RAG / LightRAG 双模式</div>
+  </div>
+  <div id="status-indicator" style="font-size:12px;opacity:.8">🟡 加载中...</div>
+</div>
+<div class="stats" id="stats-bar">
+  <span>📊 等待加载...</span>
+</div>
+<div class="mode-bar">
+  <button class="mode-btn active" data-mode="RAG" onclick="switchMode(this)">🔍 RAG 模式</button>
+  <button class="mode-btn" data-mode="LightRAG" onclick="switchMode(this)">🕸️ LightRAG 模式</button>
+</div>
+<div class="chat-area" id="chat-area">
+  <div class="msg bot">👋 你好！我是招股说明书智能问答助手。<br>支持 <b>RAG</b>（纯向量检索）和 <b>LightRAG</b>（向量+图谱增强）双模式。<br>选好模式，直接输入问题开始对话吧！</div>
+</div>
+<div class="loading" id="loading">🤔 思考中...</div>
+<div class="input-area">
+  <input type="text" id="question-input" placeholder="输入你的问题..." onkeydown="if(event.key==='Enter') sendQuestion()">
+  <button id="send-btn" onclick="sendQuestion()">发送</button>
+</div>
+
+<script>
+let currentMode = 'RAG';
+let stats = {};
+
+function switchMode(btn) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentMode = btn.dataset.mode;
+}
+
+function addMessage(text, isUser=false) {
+  const area = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (isUser ? 'user' : 'bot');
+  div.innerHTML = text.replace(/\n/g, '<br>');
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function setLoading(show) {
+  document.getElementById('loading').classList.toggle('show', show);
+  document.getElementById('send-btn').disabled = show;
+  document.getElementById('question-input').disabled = show;
+}
+
+async function sendQuestion() {
+  const input = document.getElementById('question-input');
+  const question = input.value.trim();
+  if (!question) return;
+
+  addMessage(question, true);
+  input.value = '';
+  setLoading(true);
+
+  try {
+    const resp = await fetch('/api/ask', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({question, mode: currentMode})
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      addMessage('❌ ' + data.error);
+      return;
+    }
+
+    let html = '';
+    if (data.answer) {
+      html += '<div class="answer">' + data.answer.replace(/\n/g, '<br>') + '</div>';
+    }
+    if (data.context && data.context.length > 0) {
+      html += '<div class="context-box"><strong>📎 检索来源（' + data.context.length + '条）：</strong><br>';
+      data.context.forEach((c, i) => {
+        const src = c.source_pdf || '未知';
+        const pg = c.page_num || '?';
+        const sc = c.score ? c.score.toFixed(3) : '?';
+        const tag = c.source === 'global_graph' ? '🌐全局' : '📍局部';
+        html += `<span class="source-tag">${tag}</span> [${src} 第${pg}页] 相似度=${sc}<br>`;
+        const txt = (c.text || '').substring(0, 200);
+        html += `<pre>${txt}${txt.length>=200?'...':''}</pre>`;
+        if (i < data.context.length - 1) html += '<hr style="border:none;border-top:1px solid #eee;margin:4px 0">';
+      });
+      html += '</div>';
+    }
+    addMessage(html);
+
+  } catch(e) {
+    addMessage('❌ 请求失败: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// 页面加载时获取系统状态
+window.onload = async function() {
+  try {
+    const resp = await fetch('/api/status');
+    const data = await resp.json();
+    document.getElementById('status-indicator').textContent = '🟢 就绪';
+    if (data.stats) {
+      stats = data.stats;
+      document.getElementById('stats-bar').innerHTML =
+        `<span>📄 ${stats.chunks || 0} 文本块</span>` +
+        `<span>🏷️ ${stats.entities || 0} 实体</span>` +
+        `<span>🔗 ${stats.relations || 0} 关系</span>` +
+        `<span>🕸️ ${stats.graph_nodes || 0} 图谱节点 · ${stats.graph_edges || 0} 边</span>`;
+    }
+  } catch(e) {
+    document.getElementById('status-indicator').textContent = '🔴 连接失败';
+  }
+};
+</script>
+</body>
+</html>
