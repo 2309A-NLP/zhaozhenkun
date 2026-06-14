@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单16 - VLM微调系统架构图</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; padding: 20px; min-height: 100vh; }
+h1 { text-align: center; color: #38bdf8; margin: 10px 0 30px; font-size: 1.5em; letter-spacing: 2px; }
+.container { max-width: 1400px; margin: 0 auto; }
+.arch { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 20px; }
+
+.col { display: flex; flex-direction: column; gap: 16px; }
+.col-title { text-align: center; font-weight: 700; font-size: 1em; padding: 10px; border-radius: 8px; letter-spacing: 1px; }
+.col-title.design { background: #7c3aed20; color: #a78bfa; border: 1px solid #7c3aed40; }
+.col-title.dev { background: #2563eb20; color: #60a5fa; border: 1px solid #2563eb40; }
+.col-title.test { background: #05966920; color: #34d399; border: 1px solid #05966940; }
+
+.box { background: #1e293b; border-radius: 10px; padding: 14px 16px; border: 1px solid #334155; transition: all 0.2s; }
+.box:hover { border-color: #38bdf8; transform: translateY(-2px); box-shadow: 0 4px 20px #38bdf810; }
+.box-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600; font-size: 0.9em; }
+.box-header .icon { font-size: 1.2em; }
+.box-desc { font-size: 0.78em; color: #94a3b8; line-height: 1.5; }
+.box-tag { display: inline-block; font-size: 0.65em; padding: 2px 8px; border-radius: 10px; margin-top: 6px; }
+.tag-py { background: #2563eb20; color: #60a5fa; }
+.tag-data { background: #05966920; color: #34d399; }
+.tag-model { background: #7c3aed20; color: #a78bfa; }
+.tag-config { background: #d9770620; color: #fbbf24; }
+
+/* Flow arrows between columns */
+.flow-section { margin: 30px 0 10px; }
+.flow-title { text-align: center; color: #fbbf24; font-size: 0.85em; font-weight: 600; margin-bottom: 16px; letter-spacing: 1px; }
+.flow { display: flex; align-items: center; justify-content: center; gap: 0; flex-wrap: wrap; }
+.flow-step { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 10px 16px; text-align: center; font-size: 0.8em; color: #e2e8f0; min-width: 120px; }
+.flow-arrow { color: #38bdf8; font-size: 1.4em; margin: 0 4px; }
+
+/* Bottom: data store */
+.data-section { margin-top: 30px; }
+.data-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.data-box { background: #0f766e20; border: 1px solid #0f766e40; border-radius: 8px; padding: 12px; text-align: center; }
+.data-box .name { font-weight: 600; font-size: 0.8em; color: #5eead4; }
+.data-box .info { font-size: 0.7em; color: #94a3b8; margin-top: 4px; }
+
+.footer { text-align: center; margin-top: 30px; font-size: 0.7em; color: #475569; }
+
+@media (max-width: 1000px) { .arch { grid-template-columns: 1fr; } .data-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🏗️ RAG工单16 — VLM微调系统架构图</h1>
+
+<!-- Three columns: 设计 / 研发 / 测试 -->
+<div class="arch">
+  <div class="col">
+    <div class="col-title design">📐 设计层 Design</div>
+    <div class="box">
+      <div class="box-header"><span class="icon">⚙️</span>config.py</div>
+      <div class="box-desc">集中配置管理：模型路径、LoRA参数、API密钥、工业术语词典</div>
+      <span class="box-tag tag-config">配置中心</span>
+    </div>
+    <div class="box">
+      <div class="box-header"><span class="icon">📝</span>train_config.py</div>
+      <div class="box-desc">生成 LLaMA-Factory YAML + dataset_info.json，打印启动命令</div>
+      <span class="box-tag tag-config">YAML生成器</span>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="col-title dev">💻 研发层 Development</div>
+    <div class="box">
+      <div class="box-header"><span class="icon">🚀</span>run.py <span style="color:#38bdf8;font-size:0.7em">★ 主入口</span></div>
+      <div class="box-desc">全流程编排：Step1加载→Step2数据→Step3配置→Step4训练→Step5评估</div>
+      <span class="box-tag tag-py">流水线</span>
+    </div>
+    <div class="box">
+      <div class="box-header"><span class="icon">🎯</span>trainer.py</div>
+      <div class="box-desc">LoRA微调启动器：环境检查 + 真实训练 + 模拟训练双模式</div>
+      <span class="box-tag tag-model">训练引擎</span>
+    </div>
+    <div class="box">
+      <div class="box-header"><span class="icon">🖼️</span>vlm_client.py</div>
+      <div class="box-desc">Ollama Qwen2.5-VL:3b 客户端：图文问答、健康检查、重试机制</div>
+      <span class="box-tag tag-model">VLM接口</span>
+    </div>
+    <div class="box">
+      <div class="box-header"><span class="icon">📄</span>pdf_extractor.py</div>
+      <div class="box-desc">PyMuPDF页面截图：专利PDF→PNG图片，支持自动缓存</div>
+      <span class="box-tag tag-data">图片提取</span>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="col-title test">🧪 测试&评估层 Test</div>
+    <div class="box">
+      <div class="box-header"><span class="icon">📊</span>evaluator.py</div>
+      <div class="box-desc">4维评估：BLEU-4 + ROUGE-L + 术语准确率 + 图纸推理正确性</div>
+      <span class="box-tag tag-py">评估核心</span>
+    </div>
+    <div class="box">
+      <div class="box-header"><span class="icon">🔬</span>test_vlm.py</div>
+      <div class="box-desc">快速VLM测试：看图问答 + 评估，取前10条图文样本</div>
+      <span class="box-tag tag-py">快速验证</span>
+    </div>
+    <div class="box">
+      <div class="box-header"><span class="icon">📦</span>data_prep.py</div>
+      <div class="box-desc">IMDR QA → VLM JSONL：图片提取 + 选项解析 + 8:1:1切分</div>
+      <span class="box-tag tag-data">数据转换</span>
+    </div>
+    <div class="box">
+      <div class="box-header"><span class="icon">🚄</span>run_full.py</div>
+      <div class="box-desc">快速流水线：100条子集 + 1 epoch，完整对比报告</div>
+      <span class="box-tag tag-py">快速流水线</span>
+    </div>
+  </div>
+</div>
+
+<!-- Flow -->
+<div class="flow-section">
+  <div class="flow-title">⚡ 数据流 / Pipeline</div>
+  <div class="flow">
+    <div class="flow-step">📖 IMDR<br><small>questions.jsonl</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">🔄 data_prep<br><small>格式转换</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">📝 train_config<br><small>生成YAML</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">🎯 trainer<br><small>LoRA微调</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">💾 adapter<br><small>58MB权重</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">📊 evaluator<br><small>4维评估</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step">📋 final_report<br><small>对比报告</small></div>
+  </div>
+</div>
+
+<!-- Data Layer -->
+<div class="data-section">
+  <div class="flow-title">💾 数据存储层</div>
+  <div class="data-grid">
+    <div class="data-box"><div class="name">📖 questions.jsonl</div><div class="info">10096条<br>IMDR专利QA</div></div>
+    <div class="data-box"><div class="name">🖼️ images/</div><div class="info">1709张<br>专利图纸PNG</div></div>
+    <div class="data-box"><div class="name">📦 finetune_data.jsonl</div><div class="info">10096条<br>VLM微调格式</div></div>
+    <div class="data-box"><div class="name">🎯 adapter_model</div><div class="info">58MB · 14.9M参数<br>LoRA权重</div></div>
+    <div class="data-box"><div class="name">📊 eval_set.json</div><div class="info">1010条<br>评估集</div></div>
+  </div>
+</div>
+
+<div class="footer">RAG工单16 · 调试与微调专用视觉语言模型 · Qwen2.5-VL-3B-Instruct · LoRA · RTX 5060 8GB</div>
+</div>
+</body>
+</html>

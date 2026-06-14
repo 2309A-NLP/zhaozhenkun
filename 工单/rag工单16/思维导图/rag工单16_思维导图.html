@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单16 - 思维导图</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; overflow-x: hidden; }
+svg { width: 100%; height: 100vh; display: block; }
+text { font-family: 'Segoe UI', system-ui, sans-serif; }
+.node-rect { fill: #1e293b; stroke-width: 2; rx: 8; }
+.node-rect.root { fill: #1e3a5f; stroke: #38bdf8; }
+.node-rect.design { stroke: #a78bfa; }
+.node-rect.dev { stroke: #60a5fa; }
+.node-rect.test { stroke: #34d399; }
+.node-rect.output { stroke: #fbbf24; }
+.node-rect.accept { stroke: #f472b6; }
+.line { stroke: #475569; stroke-width: 1.5; fill: none; }
+.line.design { stroke: #7c3aed40; }
+.line.dev { stroke: #2563eb40; }
+.line.test { stroke: #05966940; }
+.line.output { stroke: #d9770640; }
+.line.accept { stroke: #f472b640; }
+.title-root { fill: #38bdf8; font-size: 18px; font-weight: 700; }
+.title-branch { font-size: 14px; font-weight: 700; }
+.title-leaf { font-size: 12px; font-weight: 400; fill: #cbd5e1; }
+.title-sm { font-size: 10px; fill: #94a3b8; }
+.emoji { font-size: 16px; }
+</style>
+</head>
+<body>
+<svg id="mindmap" viewBox="0 0 1800 1100"></svg>
+<script>
+const svg = document.getElementById('mindmap');
+
+function rect(x, y, w, h, cls) {
+  const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  r.setAttribute('x', x); r.setAttribute('y', y);
+  r.setAttribute('width', w); r.setAttribute('height', h);
+  r.setAttribute('class', `node-rect ${cls}`);
+  return r;
+}
+function text(x, y, t, cls) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  el.setAttribute('x', x); el.setAttribute('y', y);
+  el.setAttribute('class', cls); el.textContent = t;
+  return el;
+}
+function tspan(x, y, t, cls) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+  el.setAttribute('x', x); el.setAttribute('y', y);
+  el.setAttribute('class', cls); el.textContent = t;
+  return el;
+}
+function line(x1, y1, x2, y2, cls) {
+  const l = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  const mx = (x1 + x2) / 2;
+  l.setAttribute('d', `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+  l.setAttribute('class', `line ${cls}`);
+  return l;
+}
+
+// ROOT: center
+const cx = 900, ry = 50;
+const rootW = 340, rootH = 50;
+svg.appendChild(rect(cx - rootW/2, ry, rootW, rootH, 'root'));
+const rootText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+rootText.setAttribute('x', cx); rootText.setAttribute('y', ry + 30);
+rootText.setAttribute('class', 'title-root'); rootText.setAttribute('text-anchor', 'middle');
+rootText.textContent = '🤖 Qwen2.5-VL-3B 工业VLM微调';
+svg.appendChild(rootText);
+
+// Branches radiating outward
+const branches = [
+  {
+    side: 'left', color: 'design', title: '📐 设计 Design',
+    x: 120, items: [
+      { t: 'config.py', s: '集中配置管理 · LoRA参数 · API密钥 · 术语词典' },
+      { t: 'train_config.py', s: 'YAML生成器 · dataset_info.json · 启动命令' },
+      { t: 'LoRA参数', s: 'rank=8 · alpha=16 · dropout=0.1 · target=all' },
+      { t: '训练参数', s: 'epochs=1 · batch=1×4 · lr=2e-4 · cosine' },
+      { t: 'Ollama配置', s: 'qwen2.5vl:3b · localhost:11434 · timeout=180s' },
+      { t: '评估权重', s: 'BLEU=0.3 · ROUGE=0.3 · 术语=0.2 · 图纸=0.2' },
+    ]
+  },
+  {
+    side: 'left', color: 'dev', title: '💻 研发 Development',
+    x: 420, items: [
+      { t: 'run.py ★主入口', s: '5步流水线 · CLI参数解析 · 模拟/真实模式' },
+      { t: 'trainer.py', s: '环境检查 · llamafactory-cli · mock/real双模式' },
+      { t: 'vlm_client.py', s: 'OllamaVLM类 · ask()图文问答 · check_health()' },
+      { t: 'pdf_extractor.py', s: 'PyMuPDF渲染 · PDF→PNG · 200dpi · 缓存' },
+      { t: 'run_full.py', s: '100条子集 · 1 epoch · 快速对比报告' },
+      { t: 'run_train_wsl.py', s: 'WSL GPU真实微调 · 7分42秒 · loss 0.47' },
+    ]
+  },
+  {
+    side: 'right', color: 'test', title: '🧪 测试评估 Test',
+    x: 1060, items: [
+      { t: 'evaluator.py', s: 'BLEU-4 · ROUGE-L · 术语准确率 · 图纸推理' },
+      { t: 'data_prep.py', s: 'IMDR→JSONL · 8:1:1切分 · 图片提取' },
+      { t: 'test_vlm.py', s: '10条VLM快速测试 · 图文问答验证' },
+      { t: '工业术语词典', s: '105条 · 热处理/材质/机械/化工/液压' },
+      { t: '3类问题', s: 'Group1文本 · Group2图文 · Group3推理' },
+      { t: 'VLM真实评估', s: '12条样本 · qwen2.5vl:3b · 已跑通' },
+    ]
+  },
+  {
+    side: 'right', color: 'output', title: '📦 产物 Output',
+    x: 1360, items: [
+      { t: '微调数据', s: 'vlm_finetune_data.jsonl (10096条)' },
+      { t: 'LoRA权重', s: 'adapter_model.safetensors (58MB)' },
+      { t: '检查点', s: 'checkpoint-23/ (187MB)' },
+      { t: '评估集', s: 'eval_set.json (1010条)' },
+      { t: '图片库', s: 'images/ (1709张专利图纸)' },
+      { t: '训练报告', s: 'loss=0.47 · eval_loss=0.15 · 7m42s' },
+    ]
+  },
+];
+
+branches.forEach(branch => {
+  const startX = branch.x;
+  const startY = 140;
+  const bw = 300, bh = 42;
+  const gap = 54;
+
+  branch.items.forEach((item, i) => {
+    const y = startY + i * gap;
+    // Line from center-ish to this node
+    const fromX = branch.side === 'left' ? cx - 160 : cx + 160;
+    svg.appendChild(line(fromX, ry + 25, startX + bw/2, y + bh/2, branch.color));
+    // Rect
+    svg.appendChild(rect(startX, y, bw, bh, branch.color));
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', startX + 10); t.setAttribute('y', y + 18);
+    t.setAttribute('class', 'title-branch');
+    t.setAttribute('fill', {'design':'#a78bfa','dev':'#60a5fa','test':'#34d399','output':'#fbbf24'}[branch.color]);
+    t.textContent = item.t;
+    svg.appendChild(t);
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    s.setAttribute('x', startX + 10); s.setAttribute('y', y + 34);
+    s.setAttribute('class', 'title-sm');
+    s.textContent = item.s.substring(0, 55);
+    svg.appendChild(s);
+  });
+
+  // Branch title
+  const ty = startY - 30;
+  const tt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  tt.setAttribute('x', startX + 5); tt.setAttribute('y', ty);
+  tt.setAttribute('class', 'title-branch');
+  tt.setAttribute('fill', {'design':'#a78bfa','dev':'#60a5fa','test':'#34d399','output':'#fbbf24'}[branch.color]);
+  tt.textContent = branch.title;
+  svg.appendChild(tt);
+});
+
+// Bottom: acceptance criteria
+const ay = 520;
+const bottomItems = [
+  { t: '✅ 成功训练≥1 epoch', s: '真实训练23 steps · train_loss 0.47下降正常', c: 'accept' },
+  { t: '⚠️ 效果提升≥5%', s: '真实训练完成 · 对比数据需补充VLM评估', c: 'accept' },
+  { t: '✅ 报告完整性', s: '3类失败案例 · 5条优化建议 · 术语词典', c: 'accept' },
+  { t: '⚙️ 技术栈', s: 'Qwen2.5-VL-3B · LoRA · LLaMA-Factory · Ollama · PyMuPDF', c: 'output' },
+];
+bottomItems.forEach((item, i) => {
+  const x = 200 + i * 400;
+  svg.appendChild(line(cx, ry + 25, x + 175, ay, item.c));
+  svg.appendChild(rect(x, ay, 350, 50, item.c));
+  const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  t.setAttribute('x', x + 10); t.setAttribute('y', ay + 22);
+  t.setAttribute('class', 'title-branch'); t.setAttribute('fill', '#f472b6');
+  t.textContent = item.t;
+  svg.appendChild(t);
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  s.setAttribute('x', x + 10); s.setAttribute('y', ay + 40);
+  s.setAttribute('class', 'title-sm');
+  s.textContent = item.s.substring(0, 60);
+  svg.appendChild(s);
+});
+</script>
+</body>
+</html>
