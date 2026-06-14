@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单11 - Embedding微调流程图</title>
+<style>
+:root {
+  --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --muted: #94a3b8;
+  --blue: #3b82f6; --cyan: #06b6d4; --green: #10b981; --orange: #f59e0b;
+  --purple: #8b5cf6; --red: #ef4444; --pink: #ec4899; --border: #334155;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI','Microsoft YaHei',sans-serif; min-height:100vh; }
+.header { text-align:center; padding:36px 20px 16px; }
+.header h1 { font-size:2em; background:linear-gradient(135deg,var(--purple),var(--pink)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.header p { color:var(--muted); margin-top:6px; font-size:1em; }
+.container { max-width:1400px; margin:0 auto; padding:0 30px 60px; }
+
+.section-title { font-size:1.15em; color:var(--purple); margin:30px 0 14px; padding-left:12px; border-left:3px solid var(--purple); }
+
+/* flow row */
+.flow-row { display:flex; justify-content:center; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:16px; }
+.flow-node { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px 20px; min-width:145px;
+  text-align:center; transition:all .2s; }
+.flow-node:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,.4); border-color:var(--purple); }
+.flow-node .icon { font-size:1.8em; margin-bottom:6px; }
+.flow-node .title { font-weight:700; font-size:.95em; }
+.flow-node .desc { font-size:.73em; color:var(--muted); margin-top:5px; line-height:1.4; }
+.flow-node .tag { display:inline-block; padding:2px 8px; border-radius:8px; font-size:.68em; margin-top:6px; }
+.tag-blue { background:rgba(59,130,246,.2); color:var(--blue); }
+.tag-cyan { background:rgba(6,182,212,.2); color:var(--cyan); }
+.tag-green { background:rgba(16,185,129,.2); color:var(--green); }
+.tag-orange { background:rgba(245,158,11,.2); color:var(--orange); }
+.tag-purple { background:rgba(139,92,246,.2); color:var(--purple); }
+.tag-pink { background:rgba(236,72,153,.2); color:var(--pink); }
+.tag-red { background:rgba(239,68,68,.2); color:var(--red); }
+
+.arrow-col { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:26px; justify-content:center; }
+.arrow-col .arr { color:var(--purple); font-size:1.4em; }
+
+/* dual section */
+.dual-section { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; margin-bottom:16px; }
+.dual-col { flex:1; min-width:340px; max-width:580px; }
+.dual-col h3 { font-size:1em; margin-bottom:10px; padding:7px 14px; border-radius:8px; display:inline-block; }
+.dual-col.left h3 { background:rgba(59,130,246,.15); color:var(--blue); }
+.dual-col.right h3 { background:rgba(16,185,129,.15); color:var(--green); }
+
+.sub-step { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
+.sub-step .num { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.8em; flex-shrink:0; color:#fff; }
+.sub-step .info strong { display:block; font-size:.85em; }
+.sub-step .info span { font-size:.72em; color:var(--muted); }
+
+/* losses */
+.loss-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px; }
+.loss-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; text-align:center; }
+.loss-card .l-icon { font-size:1.6em; margin-bottom:6px; }
+.loss-card .l-name { font-weight:700; font-size:.9em; }
+.loss-card .l-desc { color:var(--muted); font-size:.73em; margin-top:4px; line-height:1.4; }
+
+/* merge zone */
+.merge-zone { text-align:center; padding:14px; background:rgba(139,92,246,.08); border:2px dashed var(--purple); border-radius:12px; margin:10px 0; }
+.merge-zone .ml { color:var(--purple); font-weight:700; font-size:.95em; }
+
+/* eval grid */
+.eval-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+.eval-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; text-align:center; }
+.eval-card .e-name { font-weight:700; font-size:.85em; }
+.eval-card .e-desc { color:var(--muted); font-size:.7em; margin-top:4px; }
+
+.footer { text-align:center; color:var(--muted); font-size:.75em; padding:18px; border-top:1px solid var(--border); margin-top:30px; }
+
+@media (max-width:768px) {
+  .loss-grid { grid-template-columns:repeat(2,1fr); }
+  .eval-grid { grid-template-columns:repeat(3,1fr); }
+  .flow-row { flex-direction:column; align-items:center; }
+  .arrow-col { display:none; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔄 Embedding 模型微调 — 全链路流程图</h1>
+  <p>工单#11 · BGE-M3 × LoRA · 招股说明书领域 · 对比学习微调</p>
+</div>
+
+<div class="container">
+
+<!-- ═══════════ PHASE 1: 数据准备 ═══════════ -->
+<div class="section-title">📥 阶段一：数据准备 (Data Preparation)</div>
+
+<div class="flow-row">
+  <div class="flow-node">
+    <div class="icon">📄</div>
+    <div class="title">招股说明书 PDF ×2</div>
+    <div class="desc">武汉力源信息<br>武汉兴图新科</div>
+    <div class="tag tag-blue">PDF_PATHS</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">🔧</div>
+    <div class="title">PyMuPDF 解析</div>
+    <div class="desc">提取全文文本<br>页码标注</div>
+    <div class="tag tag-cyan">parse_pdf()</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">✂️</div>
+    <div class="title">文本分块</div>
+    <div class="desc">chunk_size=512<br>overlap=64</div>
+    <div class="tag tag-cyan">chunk_text()</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">🔺</div>
+    <div class="title">三元组构造</div>
+    <div class="desc">(Anchor, Positive,<br>Negative)采样</div>
+    <div class="tag tag-orange">核心</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">📊</div>
+    <div class="title">数据划分</div>
+    <div class="desc">train_ratio=0.8<br>按文档划分</div>
+    <div class="tag tag-green">data_prep.py</div>
+  </div>
+</div>
+
+<!-- 三元组策略 -->
+<div class="merge-zone">
+  <div class="ml">🔑 三元组构造策略</div>
+  <div style="color:var(--muted);font-size:.8em;margin-top:4px;">
+    Anchor (锚点): 随机文本块 &nbsp;|&nbsp;
+    Positive (正例): 同一文档相邻块 &nbsp;|&nbsp;
+    Negative (负例): 不同文档随机块 &nbsp;|&nbsp;
+    上限 MAX_TRIPLETS=500
+  </div>
+</div>
+
+<!-- ═══════════ PHASE 2: 基线评估 ═══════════ -->
+<div class="section-title">📏 阶段二：基线评估 (Baseline Evaluation) — 微调前原始 BGE-M3 指标</div>
+
+<div class="eval-grid">
+  <div class="eval-card">
+    <div class="e-name" style="color:var(--blue)">Recall@K</div>
+    <div class="e-desc">前K结果中相关文档占比<br>衡量检索覆盖率</div>
+  </div>
+  <div class="eval-card">
+    <div class="e-name" style="color:var(--cyan)">MRR</div>
+    <div class="e-desc">首个相关文档排名<br>倒数均值</div>
+  </div>
+  <div class="eval-card">
+    <div class="e-name" style="color:var(--green)">分离度</div>
+    <div class="e-desc">正例相似度−负例相似度<br>衡量区分能力</div>
+  </div>
+  <div class="eval-card">
+    <div class="e-name" style="color:var(--orange)">RAG Recall@K</div>
+    <div class="e-desc">真实RAG场景检索<br>端到端召回率</div>
+  </div>
+  <div class="eval-card">
+    <div class="e-name" style="color:var(--red)">RAG MRR</div>
+    <div class="e-desc">真实RAG场景排序<br>综合排序质量</div>
+  </div>
+</div>
+
+<!-- ═══════════ PHASE 3: LoRA训练 ═══════════ -->
+<div class="section-title">⚙️ 阶段三：LoRA 微调训练 (PEFT Fine-Tuning)</div>
+
+<div class="dual-section">
+  <div class="dual-col left">
+    <h3>🔧 LoRA 配置参数</h3>
+    <div class="sub-step"><div class="num" style="background:var(--blue)">1</div><div class="info"><strong>低秩矩阵 r=8</strong><span>控制可训练参数量 (~1%总参数)</span></div></div>
+    <div class="sub-step"><div class="num" style="background:var(--blue)">2</div><div class="info"><strong>缩放因子 alpha=16</strong><span>控制 LoRA 适配器影响力</span></div></div>
+    <div class="sub-step"><div class="num" style="background:var(--blue)">3</div><div class="info"><strong>target_modules: q_proj, v_proj</strong><span>注意力的 Query/Value 投影层</span></div></div>
+    <div class="sub-step"><div class="num" style="background:var(--blue)">4</div><div class="info"><strong>Dropout=0.1 · Bias=none</strong><span>防止过拟合 · 不训练偏置项</span></div></div>
+  </div>
+  <div class="dual-col right">
+    <h3>🖥️ 训练超参与环境</h3>
+    <div class="sub-step"><div class="num" style="background:var(--green)">1</div><div class="info"><strong>Epochs=3 · LR=2e-4</strong><span>LoRA 推荐学习率 · 3轮训练</span></div></div>
+    <div class="sub-step"><div class="num" style="background:var(--green)">2</div><div class="info"><strong>Batch=2 · GradAccum=8</strong><span>等效 batch=16 · 8GB显存安全</span></div></div>
+    <div class="sub-step"><div class="num" style="background:var(--green)">3</div><div class="info"><strong>FP16 · AdamW · max_len=512</strong><span>混合精度 · 权重衰减优化器</span></div></div>
+    <div class="sub-step"><div class="num" style="background:var(--green)">4</div><div class="info"><strong>GPU: RTX 5060 8GB</strong><span>消费级显卡 · ~6.5GB 显存使用</span></div></div>
+  </div>
+</div>
+
+<!-- loss functions -->
+<div class="section-title">📐 四种对比学习损失函数 (可配置切换)</div>
+<div class="loss-grid">
+  <div class="loss-card">
+    <div class="l-icon">🔺</div>
+    <div class="l-name" style="color:var(--blue)">Triplet Loss</div>
+    <div class="l-desc">d(A,P)+margin < d(A,N)<br>让正例比负例更靠近锚点<br>适用: 标准三元组训练</div>
+    <div class="tag tag-blue">默认</div>
+  </div>
+  <div class="loss-card">
+    <div class="l-icon">⚖️</div>
+    <div class="l-name" style="color:var(--orange)">Contrastive Loss</div>
+    <div class="l-desc">正对拉近 · 负对推远<br>基于欧几里得距离<br>适用: 正负例句子对</div>
+    <div class="tag tag-orange">可选</div>
+  </div>
+  <div class="loss-card">
+    <div class="l-icon">📐</div>
+    <div class="l-name" style="color:var(--green)">Cosine Similarity</div>
+    <div class="l-desc">直接优化余弦相似度<br>支持连续相似度标签<br>适用: 带分数的对</div>
+    <div class="tag tag-green">可选</div>
+  </div>
+  <div class="loss-card">
+    <div class="l-icon">🎯</div>
+    <div class="l-name" style="color:var(--purple)">Matryoshka Loss</div>
+    <div class="l-desc">多尺度嵌入表示<br>1024→512→256均可检索<br>适用: 灵活维度检索</div>
+    <div class="tag tag-purple">可选</div>
+  </div>
+</div>
+
+<!-- ═══════════ PHASE 4: 训练过程 ═══════════ -->
+<div class="section-title">💾 Checkpoint 保存策略 & 训练流程</div>
+<div class="flow-row">
+  <div class="flow-node">
+    <div class="icon">🔄</div>
+    <div class="title">BGE-M3 加载</div>
+    <div class="desc">AutoModel<br>全量参数冻结</div>
+    <div class="tag tag-blue">PEFT</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">➕</div>
+    <div class="title">LoRA Adapter</div>
+    <div class="desc">get_peft_model()<br>仅训练 ~1% 参数</div>
+    <div class="tag tag-purple">核心</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">🏋️</div>
+    <div class="title">训练循环</div>
+    <div class="desc">TripletDataset<br>DataLoader</div>
+    <div class="tag tag-orange">trainer.py</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">💾</div>
+    <div class="title">每50步存盘</div>
+    <div class="desc">checkpoint-50<br>checkpoint-100<br>checkpoint-150</div>
+    <div class="tag tag-green">output/models/</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">🏆</div>
+    <div class="title">最终模型</div>
+    <div class="desc">best checkpoint<br>→ final/ 目录</div>
+    <div class="tag tag-pink">部署使用</div>
+  </div>
+</div>
+
+<!-- ═══════════ PHASE 5: 微调后评估 ═══════════ -->
+<div class="section-title">📊 阶段四-五：微调后评估 + 对比报告</div>
+<div class="flow-row">
+  <div class="flow-node">
+    <div class="icon">📏</div>
+    <div class="title">加载最佳LoRA</div>
+    <div class="desc">final/adapter_model<br>.bin (~8MB)</div>
+    <div class="tag tag-purple">PEFT</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">🔄</div>
+    <div class="title">重跑全量评估</div>
+    <div class="desc">三元组 + RAG<br>双轨指标体系</div>
+    <div class="tag tag-cyan">evaluator.py</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">📊</div>
+    <div class="title">Before vs After</div>
+    <div class="desc">计算各指标Delta<br>判定提升效果</div>
+    <div class="tag tag-green">comparison</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">📄</div>
+    <div class="title">JSON 对比报告</div>
+    <div class="desc">output/eval/<br>comparison_report</div>
+    <div class="tag tag-orange">产出物</div>
+  </div>
+</div>
+
+<!-- ═══════════ PHASE 6: MiMo辅助 ═══════════ -->
+<div class="section-title">🤖 并行辅助：MiMo LLM 问答对生成</div>
+<div class="flow-row">
+  <div class="flow-node">
+    <div class="icon">📝</div>
+    <div class="title">文档块输入</div>
+    <div class="desc">招股说明书<br>文本块</div>
+    <div class="tag tag-blue">输入</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">🤖</div>
+    <div class="title">MiMo API 生成</div>
+    <div class="desc">生成(问题,答案)对<br>从文本提取关键信息</div>
+    <div class="tag tag-orange">mimo_api.py</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">⭐</div>
+    <div class="title">质量评分</div>
+    <div class="desc">LLM评分过滤<br>保留高质量问答对</div>
+    <div class="tag tag-purple">过滤</div>
+  </div>
+  <div class="arrow-col"><span class="arr">→</span></div>
+  <div class="flow-node">
+    <div class="icon">📦</div>
+    <div class="title">扩充训练数据</div>
+    <div class="desc">问答对加入<br>正例句子对训练</div>
+    <div class="tag tag-green">output/data/</div>
+  </div>
+</div>
+
+<div class="footer">工单#11 · 人工智能NLP-RAG · Embeddings模型微调 · BGE-M3 × LoRA × 招股说明书 · 4损失函数 · 5步流水线</div>
+</div>
+</body>
+</html>

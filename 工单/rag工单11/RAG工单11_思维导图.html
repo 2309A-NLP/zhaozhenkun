@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单11 - Embedding微调思维导图</title>
+<style>
+:root {
+  --bg: #0f172a; --text: #e2e8f0; --muted: #94a3b8;
+  --blue: #3b82f6; --cyan: #06b6d4; --green: #10b981; --orange: #f59e0b;
+  --purple: #8b5cf6; --pink: #ec4899; --red: #ef4444;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI','Microsoft YaHei',sans-serif;
+  overflow:hidden; height:100vh; user-select:none; -webkit-user-select:none; }
+
+.header { position:absolute; top:12px; left:0; right:0; text-align:center; z-index:10; pointer-events:none; }
+.header h1 { font-size:1.35em; background:linear-gradient(135deg,var(--purple),var(--pink)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.header p { color:var(--muted); font-size:.72em; }
+
+svg { width:100%; height:100%; display:block; }
+
+.controls { position:absolute; bottom:20px; right:20px; z-index:10; display:flex; gap:8px; }
+.controls button { background:#1e293b; border:1px solid #334155; color:var(--text); padding:8px 16px;
+  border-radius:8px; cursor:pointer; font-size:.8em; transition:all .2s; }
+.controls button:hover { border-color:var(--purple); color:var(--purple); }
+.legend { position:absolute; bottom:20px; left:20px; z-index:10; display:flex; gap:14px; font-size:.7em; color:var(--muted); flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:5px; }
+.legend-item .dot { width:10px; height:10px; border-radius:3px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 RAG工单11 — Embedding模型微调 思维导图</h1>
+  <p>BGE-M3 × LoRA × 招股说明书 · 5步流水线 · 4种损失函数 · 双轨评估</p>
+</div>
+
+<div class="controls">
+  <button onclick="expandAll()">📖 全部展开</button>
+  <button onclick="collapseAll()">📕 全部收起</button>
+  <button onclick="resetView()">🔄 重置</button>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><span class="dot" style="background:var(--blue)"></span>数据</div>
+  <div class="legend-item"><span class="dot" style="background:var(--purple)"></span>训练/LoRA</div>
+  <div class="legend-item"><span class="dot" style="background:var(--green)"></span>评估</div>
+  <div class="legend-item"><span class="dot" style="background:var(--orange)"></span>MiMo/LLM</div>
+  <div class="legend-item"><span class="dot" style="background:var(--pink)"></span>配置/部署</div>
+  <div class="legend-item"><span class="dot" style="background:var(--cyan)"></span>损失函数</div>
+</div>
+
+<svg id="svg"></svg>
+
+<script>
+// ═══════════ MIND MAP DATA ═══════════
+const root = {
+  name: "Embedding 模型微调",
+  desc: "工单#11 · BGE-M3 × LoRA · 招股说明书",
+  color: "#8b5cf6",
+  children: [
+    {
+      name: "📄 数据准备", desc: "data_prep.py", color: "#3b82f6", open: true,
+      children: [
+        { name:"招股说明书PDF×2", desc:"武汉力源信息 · 武汉兴图新科", color:"#3b82f6" },
+        { name:"PyMuPDF解析", desc:"parse_pdf() · 提取全文+页码", color:"#3b82f6" },
+        { name:"文本分块", desc:"chunk_size=512 · overlap=64", color:"#3b82f6" },
+        { name:"三元组构造", desc:"(Anchor,Pos,Neg)采样 · MAX=500", color:"#3b82f6" },
+        { name:"数据划分", desc:"train_ratio=0.8 · 按文档划分", color:"#3b82f6" },
+        { name:"输出目录", desc:"output/data/ · 训练+评估集", color:"#3b82f6" },
+      ]
+    },
+    {
+      name: "⚙️ LoRA 微调训练", desc: "trainer.py · PEFT", color: "#8b5cf6", open: true,
+      children: [
+        { name:"LoRA Config", desc:"r=8 · alpha=16 · q_proj+v_proj", color:"#8b5cf6" },
+        { name:"EmbeddingFineTuner", desc:"加载→PEFT→训练→保存", color:"#8b5cf6" },
+        { name:"TripletDataset", desc:"三元组编码为token IDs · max_len=512", color:"#8b5cf6" },
+        { name:"训练超参", desc:"Epochs=3 · LR=2e-4 · Batch=2 · GradAccum=8", color:"#8b5cf6" },
+        { name:"FP16+AdamW", desc:"混合精度 · 权重衰减优化器", color:"#8b5cf6" },
+        { name:"GPU RTX 5060", desc:"8GB显存 · ~6.5GB使用 · get_device()", color:"#8b5cf6" },
+        { name:"Checkpoint保存", desc:"每50步存盘 · checkpoint-50/100/150 → final/", color:"#8b5cf6" },
+      ]
+    },
+    {
+      name: "📐 损失函数 (4种)", desc: "losses.py · 可配置切换", color: "#06b6d4", open: false,
+      children: [
+        { name:"Triplet Loss", desc:"d(A,P)+margin<d(A,N) · 默认 · 三元组", color:"#06b6d4" },
+        { name:"Contrastive Loss", desc:"正对拉近 · 负对推远 · 欧几里得距离", color:"#06b6d4" },
+        { name:"Cosine Similarity", desc:"直接优化余弦 · 连续相似度标签", color:"#06b6d4" },
+        { name:"Matryoshka Loss", desc:"多尺度嵌入 · 1024→512→256可截断", color:"#06b6d4" },
+        { name:"compute_embeddings()", desc:"模型编码 · 返回归一化向量", color:"#06b6d4" },
+        { name:"get_loss_function()", desc:"根据配置值动态选择损失", color:"#06b6d4" },
+        { name:"collate_triplets()", desc:"三元组批整理为模型输入格式", color:"#06b6d4" },
+      ]
+    },
+    {
+      name: "🤖 MiMo LLM 辅助", desc: "mimo_api.py · 问答对生成", color: "#f59e0b", open: false,
+      children: [
+        { name:"问答对生成", desc:"文档块→LLM生成(问题,答案)对", color:"#f59e0b" },
+        { name:"质量评分", desc:"LLM评分过滤 · 保留高质量数据", color:"#f59e0b" },
+        { name:"MiMo-v2.5-pro", desc:"Token Plan API · 小米开放平台", color:"#f59e0b" },
+        { name:"扩充训练集", desc:"问答对→正例句子对 · 增强训练", color:"#f59e0b" },
+      ]
+    },
+    {
+      name: "📊 双轨评估体系", desc: "evaluator.py · 微调前后对比", color: "#10b981", open: true,
+      children: [
+        { name:"轨道一: 三元组评估", desc:"Recall@K · MRR · 分离度", color:"#10b981" },
+        { name:"Recall@K", desc:"前K结果中相关文档占比 · 覆盖率", color:"#10b981" },
+        { name:"MRR", desc:"首个相关文档排名倒数均值 · 排序质量", color:"#10b981" },
+        { name:"分离度", desc:"正例相似度−负例相似度 · 区分能力", color:"#10b981" },
+        { name:"轨道二: RAG检索评估", desc:"RAG_Recall@K · RAG_MRR · 端到端", color:"#10b981" },
+        { name:"RAG测试问题集", desc:"预设RAG_TEST_QUESTIONS · 真实场景", color:"#10b981" },
+        { name:"对比报告", desc:"baseline vs finetuned · JSON输出", color:"#10b981" },
+      ]
+    },
+    {
+      name: "🚀 部署与运行", desc: "run_all.py · run.py", color: "#ec4899", open: false,
+      children: [
+        { name:"run_all.py", desc:"总入口 · 调用全部6模块 · 5步流水线", color:"#ec4899" },
+        { name:"run.py", desc:"根目录入口 · 自动加载子目录 · PyCharm", color:"#ec4899" },
+        { name:"main.py", desc:"备用入口 · 4步流水线", color:"#ec4899" },
+        { name:"分步执行", desc:"--step 1/2/3/4/5 · 灵活调试", color:"#ec4899" },
+        { name:"config.py", desc:"全局配置 · 140+行 · Windows/WSL双平台", color:"#ec4899" },
+        { name:"check_cuda.py", desc:"CUDA环境检查 · GPU可用性", color:"#ec4899" },
+        { name:"check_deps.py", desc:"依赖包检查 · torch/transformers/peft", color:"#ec4899" },
+        { name:"产出物", desc:"output/data/ + models/ + eval/", color:"#ec4899" },
+      ]
+    },
+  ]
+};
+
+// ═══════════ LAYOUT ENGINE ═══════════
+const NODE_W = 185, NODE_H = 52;
+const H_GAP = 275;
+const LEAF_W = 210, LEAF_H = 36;
+
+function getNodeSize(d) {
+  return d.children ? [NODE_W, NODE_H] : [LEAF_W, LEAF_H];
+}
+
+let allNodes = [];
+let nodeMap = new Map();
+
+function layoutTree() {
+  allNodes = [];
+  nodeMap = new Map();
+
+  function layout(node, depth, top) {
+    const [w, h] = getNodeSize(node);
+    const children = (node.open && node.children) ? node.children : [];
+
+    if (children.length === 0) {
+      const nd = { data:node, depth, x:0, y:0, w, h, children:[] };
+      nd.x = depth * H_GAP;
+      nd.y = top + h / 2;
+      nd.totalH = h + 12;
+      allNodes.push(nd);
+      nodeMap.set(node, nd);
+      return nd.totalH;
+    }
+
+    const childNodes = [];
+    let childTop = top;
+    for (const ch of children) {
+      const chH = layout(ch, depth + 1, childTop);
+      childTop += chH;
+    }
+    const totalChildrenH = childTop - top;
+
+    const selfY = top + totalChildrenH / 2;
+    const nd = { data:node, depth, x:depth * H_GAP, y:selfY, w, h, children:[] };
+    allNodes.push(nd);
+    nodeMap.set(node, nd);
+
+    const selfH = Math.max(h + 20, totalChildrenH);
+    nd.totalH = selfH;
+    return selfH;
+  }
+
+  const totalH = layout(root, 0, 30);
+  return totalH;
+}
+
+// ═══════════ SVG RENDERING ═══════════
+const svg = document.getElementById('svg');
+let gRoot;
+
+function render() {
+  svg.innerHTML = '';
+  gRoot = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  svg.appendChild(gRoot);
+
+  const totalH = layoutTree();
+  const maxDepth = Math.max(...allNodes.map(n => n.depth));
+  const totalW = maxDepth * H_GAP + LEAF_W + 80;
+  const totalHeight = totalH + 80;
+
+  svg.setAttribute('viewBox', `0 0 ${totalW} ${totalHeight}`);
+
+  // edges
+  for (const nd of allNodes) {
+    if (!nd.data.children || !nd.data.open) continue;
+    for (const ch of nd.data.children) {
+      const chNd = nodeMap.get(ch);
+      if (!chNd) continue;
+      const x1 = nd.x + nd.w;
+      const y1 = nd.y;
+      const x2 = chNd.x;
+      const y2 = chNd.y;
+      const mx = (x1 + x2) / 2;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', nd.data.color);
+      path.setAttribute('stroke-opacity', '0.3');
+      path.setAttribute('stroke-width', chNd.data.children ? '2.5' : '1.6');
+      gRoot.appendChild(path);
+    }
+  }
+
+  // nodes
+  for (const nd of allNodes) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('transform', `translate(${nd.x}, ${nd.y - nd.h/2})`);
+    g.style.cursor = 'pointer';
+
+    const d = nd.data;
+    const color = d.color;
+    const isParent = d.children && d.children.length > 0;
+
+    // rect
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('width', nd.w);
+    rect.setAttribute('height', nd.h);
+    rect.setAttribute('rx', '8');
+    rect.setAttribute('fill', '#1e293b');
+    rect.setAttribute('stroke', color);
+    rect.setAttribute('stroke-width', isParent ? '2' : '1');
+    rect.setAttribute('stroke-opacity', '0.7');
+    g.appendChild(rect);
+
+    // left bar
+    if (isParent) {
+      const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bar.setAttribute('x', '0');
+      bar.setAttribute('y', '0');
+      bar.setAttribute('width', '5');
+      bar.setAttribute('height', nd.h);
+      bar.setAttribute('rx', '3');
+      bar.setAttribute('fill', color);
+      g.appendChild(bar);
+    }
+
+    // toggle
+    if (isParent) {
+      const toggle = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      toggle.setAttribute('x', nd.w - 18);
+      toggle.setAttribute('y', nd.h / 2 + 1);
+      toggle.setAttribute('text-anchor', 'middle');
+      toggle.setAttribute('dominant-baseline', 'central');
+      toggle.setAttribute('fill', '#94a3b8');
+      toggle.setAttribute('font-size', '12');
+      toggle.textContent = d.open ? '−' : '+';
+      g.appendChild(toggle);
+    }
+
+    // name
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', isParent ? 16 : 10);
+    text.setAttribute('y', isParent ? nd.h/2 - 5 : nd.h/2 + 1);
+    text.setAttribute('fill', '#e2e8f0');
+    text.setAttribute('font-size', isParent ? '12.5' : '10.5');
+    text.setAttribute('font-weight', isParent ? '700' : '500');
+    text.setAttribute('font-family', '"Microsoft YaHei","Segoe UI",sans-serif');
+    text.setAttribute('dominant-baseline', 'central');
+    text.textContent = d.name;
+    g.appendChild(text);
+
+    // desc
+    if (isParent && d.desc) {
+      const sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      sub.setAttribute('x', 16);
+      sub.setAttribute('y', nd.h/2 + 14);
+      sub.setAttribute('fill', '#64748b');
+      sub.setAttribute('font-size', '9.5');
+      sub.setAttribute('font-family', '"Microsoft YaHei","Segoe UI",sans-serif');
+      let txt = d.desc;
+      if (txt.length > 24) txt = txt.slice(0,24) + '…';
+      sub.textContent = txt;
+      g.appendChild(sub);
+    }
+
+    // hover
+    g.addEventListener('mouseenter', () => {
+      rect.setAttribute('fill', '#283348');
+      rect.setAttribute('stroke', color);
+      rect.setAttribute('stroke-opacity', '1');
+    });
+    g.addEventListener('mouseleave', () => {
+      rect.setAttribute('fill', '#1e293b');
+      rect.setAttribute('stroke', color);
+      rect.setAttribute('stroke-opacity', '0.7');
+    });
+
+    // click toggle
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (d.children && d.children.length > 0) {
+        d.open = !d.open;
+        render();
+      }
+    });
+
+    gRoot.appendChild(g);
+  }
+}
+
+// ═══════════ PAN/ZOOM ═══════════
+let panX = 0, panY = 0, zoom = 1;
+let dragging = false, startX, startY, startPanX, startPanY;
+
+svg.addEventListener('mousedown', e => {
+  if (e.target === svg) {
+    dragging = true;
+    startX = e.clientX; startY = e.clientY;
+    startPanX = panX; startPanY = panY;
+    svg.style.cursor = 'grabbing';
+  }
+});
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  panX = startPanX + (e.clientX - startX);
+  panY = startPanY + (e.clientY - startY);
+  applyTransform();
+});
+window.addEventListener('mouseup', () => { dragging = false; svg.style.cursor = 'default'; });
+
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const dz = e.deltaY > 0 ? 0.92 : 1.08;
+  const newZoom = Math.min(2.5, Math.max(0.25, zoom * dz));
+  const rect = svg.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  panX = mx - (mx - panX) * (newZoom / zoom);
+  panY = my - (my - panY) * (newZoom / zoom);
+  zoom = newZoom;
+  applyTransform();
+}, { passive: false });
+
+function applyTransform() {
+  gRoot.setAttribute('transform', `translate(${panX},${panY}) scale(${zoom})`);
+}
+
+window.expandAll = () => {
+  function open(n) { if(n.children){ n.open=true; n.children.forEach(open); } }
+  open(root); render();
+};
+window.collapseAll = () => {
+  function close(n) { if(n.children){ n.open=false; n.children.forEach(close); } }
+  root.children.forEach(c => { c.open=false; if(c.children) c.children.forEach(ch => { ch.open = false; }); });
+  render();
+};
+window.resetView = () => { panX=0; panY=0; zoom=1; applyTransform(); };
+
+render();
+</script>
+</body>
+</html>

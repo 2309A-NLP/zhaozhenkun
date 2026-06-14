@@ -1,0 +1,27 @@
+Embedding 模型微调项目 — 说明文档
+===================================
+
+工单：人工智能NLP-RAG项目-11-Embeddings模型微调任务V1.0
+目标：对BGE-M3进行LoRA微调，使其在招股说明书领域的检索效果优于原始模型
+
+核心文件：
+  部署/run_all.py  — 总入口，调用全部模块（python run_all.py）
+  设计/config.py   — 全局配置（模型路径/API密钥/训练参数）
+  研发/data_prep.py — PDF解析+三元组构造
+  研发/losses.py   — 损失函数(triplet/contrastive/cosine/matryoshka)
+  研发/trainer.py  — LoRA微调训练
+  研发/mimo_api.py — MiMo问答对生成+评分
+  测试/evaluator.py — 评估对比(三元组+RAG检索)
+
+使用方法：
+  python run_all.py              # 完整流水线
+  python run_all.py --step 1     # 仅数据准备
+  python run_all.py --step 2     # 仅基线评估
+  python run_all.py --step 3     # 仅微调训练
+  python run_all.py --step 4     # 仅微调后评估
+  python run_all.py --step 5     # 仅对比报告
+
+产出物：
+  output/data/   — 训练/评估数据集
+  output/models/ — LoRA微调权重
+  output/eval/   — 评估报告JSON
