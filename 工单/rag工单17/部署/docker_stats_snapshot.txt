@@ -1,0 +1,5 @@
+CONTAINER ID   NAME                   CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O         PIDS
+c814ffdc4dbe   docker-ragflow-cpu-1   0.24%     3.209GiB / 23.47GiB   13.67%    3.62MB / 3.58MB   3.7MB / 1.21MB    75
+dc623c4fac07   docker-mysql-1         0.37%     422.3MiB / 23.47GiB   1.76%     156MB / 254MB     21.6MB / 249MB    45
+f7f0c06099c0   docker-es01-1          0.18%     4.354GiB / 8GiB       54.43%    302kB / 2.53MB    16.6MB / 263MB    134
+b4498a4486c3   docker-redis-1         0.13%     12.12MiB / 23.47GiB   0.05%     32.4MB / 26MB     11.5MB / 1.63MB   6

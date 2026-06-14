@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单17 - 系统架构图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif;padding:20px;min-height:100vh}
+h1{text-align:center;color:#38bdf8;margin:10px 0 25px;font-size:1.4em;letter-spacing:2px}
+.container{max-width:1500px;margin:0 auto}
+
+.row{display:flex;gap:20px;margin-bottom:20px;justify-content:center;flex-wrap:wrap}
+
+.card{background:#1e293b;border-radius:12px;padding:18px;border:1px solid #334155;min-width:280px;flex:1;max-width:450px}
+.card:hover{border-color:#38bdf8;box-shadow:0 4px 20px #38bdf810}
+.card-title{font-weight:700;font-size:0.95em;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #334155}
+.card-title.problem{color:#f87171;border-color:#f8717140}
+.card-title.fix{color:#34d399;border-color:#34d39940}
+.card-title.tool{color:#60a5fa;border-color:#60a5fa40}
+.card-title.result{color:#fbbf24;border-color:#fbbf2440}
+
+.item{display:flex;align-items:flex-start;gap:8px;margin:6px 0;font-size:0.8em;line-height:1.5}
+.item .dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.dot.red{background:#f87171}
+.dot.green{background:#34d399}
+.dot.blue{background:#60a5fa}
+.dot.yellow{background:#fbbf24}
+.dot.purple{background:#a78bfa}
+.tag{display:inline-block;font-size:0.65em;padding:1px 7px;border-radius:8px;margin-left:4px}
+.tag-py{background:#2563eb20;color:#60a5fa}
+.tag-yml{background:#d9770620;color:#fbbf24}
+.tag-jmx{background:#05966920;color:#34d399}
+.tag-md{background:#7c3aed20;color:#a78bfa}
+
+.flow-section{margin:25px 0}
+.flow-title{text-align:center;color:#fbbf24;font-size:0.85em;font-weight:600;margin-bottom:12px}
+.flow{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap}
+.flow-step{background:#1e293b;border:1px solid;border-radius:10px;padding:12px 18px;text-align:center;font-size:0.78em;min-width:100px}
+.flow-step.s1{border-color:#f87171;color:#fca5a5}
+.flow-step.s2{border-color:#60a5fa;color:#93c5fd}
+.flow-step.s3{border-color:#34d399;color:#6ee7b7}
+.flow-step.s4{border-color:#fbbf24;color:#fcd34d}
+.flow-arrow{color:#38bdf8;font-size:1.6em;margin:0 5px}
+
+.data-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:12px}
+.data-box{background:#0f766e15;border:1px solid #0f766e30;border-radius:8px;padding:10px;text-align:center}
+.data-box .name{font-weight:600;font-size:0.8em;color:#5eead4}
+.data-box .info{font-size:0.7em;color:#94a3b8;margin-top:3px}
+
+.compare{display:grid;grid-template-columns:1fr 80px 1fr;gap:10px;align-items:center;font-size:0.8em}
+.compare .before{text-align:right;color:#fca5a5}
+.compare .arrow{text-align:center;color:#38bdf8;font-size:1.2em}
+.compare .after{text-align:left;color:#6ee7b7}
+.compare .label{text-align:center;color:#94a3b8;font-size:0.65em}
+
+.footer{text-align:center;margin-top:25px;font-size:0.68em;color:#475569}
+@media(max-width:900px){.card{min-width:100%}}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🔧 RAG工单17 — API并发瓶颈与资源泄漏 系统架构图</h1>
+
+<!-- Row 1: Problems → Fixes -->
+<div class="row">
+  <div class="card">
+    <div class="card-title problem">🔴 问题诊断 — 4瓶颈 + 4泄漏点</div>
+    <div class="item"><span class="dot red"></span><b>瓶颈1:</b> LLMBundle 每次请求重复创建 <span class="tag tag-py">dialog_service.py</span></div>
+    <div class="item"><span class="dot red"></span><b>瓶颈2:</b> Langfuse 连接每次请求新建 <span class="tag tag-py">dialog_service.py</span></div>
+    <div class="item"><span class="dot red"></span><b>瓶颈3:</b> 请求无并发控制/限流 <span class="tag tag-py">Quart Server</span></div>
+    <div class="item"><span class="dot red"></span><b>瓶颈4:</b> DeepDoc OCR/VLM 重复初始化 <span class="tag tag-py">task_service.py</span></div>
+    <div class="item"><span class="dot red"></span><b>泄漏1:</b> LLMBundle 资源未close()</div>
+    <div class="item"><span class="dot red"></span><b>泄漏2:</b> 对话消息无限累积</div>
+    <div class="item"><span class="dot red"></span><b>泄漏3:</b> 数据库连接池未最优配置</div>
+    <div class="item"><span class="dot red"></span><b>泄漏4:</b> Embedding 张量未及时释放</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title fix">🟢 代码修复 — 3个补丁</div>
+    <div class="item"><span class="dot green"></span><b>补丁1:</b> common/resource_cache.py <span class="tag tag-py">新增</span></div>
+    <div class="item" style="margin-left:16px">LLMBundleCache — 进程级缓存(TTL=300s)</div>
+    <div class="item" style="margin-left:16px">LangfuseCache — 租户级缓存(TTL=600s)</div>
+    <div class="item" style="margin-left:16px">ChatConcurrencyLimiter — Semaphore(10)</div>
+    <div class="item"><span class="dot green"></span><b>补丁2:</b> api/db/db_models.py</div>
+    <div class="item" style="margin-left:16px">max_connections=20, stale_timeout=300</div>
+    <div class="item"><span class="dot green"></span><b>补丁3:</b> common/prometheus_metrics.py</div>
+    <div class="item" style="margin-left:16px">/api/v1/metrics 端点 — Prometheus监控</div>
+  </div>
+</div>
+
+<!-- Flow -->
+<div class="flow-section">
+  <div class="flow-title">⚡ 优化流水线</div>
+  <div class="flow">
+    <div class="flow-step s1">🔍 静态分析<br><small>dialog_service<br>db_models<br>task_service</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step s2">🧪 压测验证<br><small>场景A: 5并发<br>场景B: 3并发<br>Ollama LLM</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step s3">🔧 代码修复<br><small>3个补丁<br>容器部署<br>docker cp</small></div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-step s4">📊 对比评估<br><small>失败率 4%→0%<br>P95 54s→52s<br>监控已集成</small></div>
+  </div>
+</div>
+
+<!-- Row 2: Tools & Results -->
+<div class="row">
+  <div class="card">
+    <div class="card-title tool">🛠️ 技术栈 & 工具</div>
+    <div class="item"><span class="dot blue"></span><b>RAGFlow</b> — Quart/Peewee/Redis/ES</div>
+    <div class="item"><span class="dot blue"></span><b>Ollama</b> — llama3.1:8b (LLM推理)</div>
+    <div class="item"><span class="dot blue"></span><b>JMeter 5.6.3</b> — 压测脚本 <span class="tag tag-jmx">JMX</span></div>
+    <div class="item"><span class="dot blue"></span><b>Docker Compose</b> — 容器编排 <span class="tag tag-yml">YAML</span></div>
+    <div class="item"><span class="dot blue"></span><b>Prometheus</b> — 监控指标采集</div>
+    <div class="item"><span class="dot blue"></span><b>Python</b> — 自动化测试脚本</div>
+    <div class="item"><span class="dot blue"></span><b>itsdangerous</b> — JWT Token生成</div>
+    <div class="item"><span class="dot blue"></span><b>nvidia-smi</b> — GPU监控</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title result">📊 优化效果对比</div>
+    <div class="compare">
+      <div class="before">54.5s<br><span class="label">P95优化前</span></div>
+      <div class="arrow">→</div>
+      <div class="after">52.1s<br><span class="label">P95优化后 ⬇4.3%</span></div>
+    </div>
+    <div class="compare" style="margin-top:10px">
+      <div class="before" style="color:#f87171">4%<br><span class="label">失败率优化前</span></div>
+      <div class="arrow">→</div>
+      <div class="after">0%<br><span class="label">失败率优化后 ✅</span></div>
+    </div>
+    <div class="compare" style="margin-top:10px">
+      <div class="before">0<br><span class="label">缓存命中优化前</span></div>
+      <div class="arrow">→</div>
+      <div class="after">5个/请求<br><span class="label">LLMBundle缓存命中</span></div>
+    </div>
+    <div class="compare" style="margin-top:10px">
+      <div class="before">无限制<br><span class="label">连接池优化前</span></div>
+      <div class="arrow">→</div>
+      <div class="after">20上限<br><span class="label">连接池优化后</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Data Layer -->
+<div class="data-grid">
+  <div class="data-box"><div class="name">📦 resource_cache.py</div><div class="info">LLMBundleCache<br>LangfuseCache<br>ChatConcurrencyLimiter</div></div>
+  <div class="data-box"><div class="name">📦 db_models.py</div><div class="info">max_connections=20<br>stale_timeout=300s<br>RetryingPooledMySQL</div></div>
+  <div class="data-box"><div class="name">📦 prometheus_metrics.py</div><div class="info">/api/v1/metrics<br>8个指标<br>Prometheus格式</div></div>
+  <div class="data-box"><div class="name">🧪 JMeter脚本</div><div class="info">场景A 5/20并发<br>场景B 3/10并发<br>4个JMX文件</div></div>
+  <div class="data-box"><div class="name">📊 测试报告</div><div class="info">3份性能报告<br>前后对比数据<br>验收标准对照</div></div>
+  <div class="data-box"><div class="name">🗄️ 部署配置</div><div class="info">docker-compose优化<br>资源限制4核8GB<br>12h稳定性脚本</div></div>
+</div>
+
+<div class="footer">RAG工单17 · 解决API服务并发瓶颈与资源泄漏 · RAGFlow · Ollama · Docker · Prometheus</div>
+</div>
+</body>
+</html>

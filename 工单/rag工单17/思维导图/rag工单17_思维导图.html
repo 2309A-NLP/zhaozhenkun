@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAG工单17 - 思维导图</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f172a;font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden}
+svg{width:100%;height:100vh}
+.node-rect{fill:#1e293b;stroke-width:2;rx:8}
+.node-rect.root{fill:#1e3a5f;stroke:#38bdf8}
+.node-rect.problem{stroke:#f87171}
+.node-rect.fix{stroke:#34d399}
+.node-rect.test{stroke:#60a5fa}
+.node-rect.output{stroke:#fbbf24}
+.node-rect.accept{stroke:#a78bfa}
+.line{stroke:#475569;stroke-width:1.5;fill:none}
+.line.problem{stroke:#f8717140}
+.line.fix{stroke:#34d39940}
+.line.test{stroke:#60a5fa40}
+.line.output{stroke:#d9770640}
+.line.accept{stroke:#a78bfa40}
+</style>
+</head>
+<body>
+<svg viewBox="0 0 1800 1050">
+<script>
+<![CDATA[
+const svg = document.querySelector('svg');
+
+function rect(x,y,w,h,c){const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',w);r.setAttribute('height',h);r.setAttribute('class','node-rect '+c);return r}
+function te(x,y,t,c,s){const el=document.createElementNS('http://www.w3.org/2000/svg','text');el.setAttribute('x',x);el.setAttribute('y',y);el.setAttribute('class',c);el.setAttribute('font-size',s||'13px');el.setAttribute('fill','#cbd5e1');el.textContent=t;return el}
+function li(x1,y1,x2,y2,c){const l=document.createElementNS('http://www.w3.org/2000/svg','path');const mx=(x1+x2)/2;l.setAttribute('d',`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);l.setAttribute('class','line '+c);return l}
+
+const cx=900,ry=40;
+// ROOT
+svg.appendChild(rect(cx-220,ry,440,55,'root'));
+svg.appendChild(te(cx,ry+20,'🔧 RAG工单17','','16px'));
+svg.appendChild(te(cx,ry+38,'解决API服务并发瓶颈与资源泄漏','','11px').setAttribute('fill','#94a3b8'));
+
+// Define branches
+const branches=[
+  {title:'🔴 问题诊断',color:'problem',side:'left',x:100,w:340,h:38,gap:52,startY:140,items:[
+    {t:'瓶颈1: LLMBundle重复创建',s:'dialog_service.py get_models()'},
+    {t:'瓶颈2: Langfuse连接重复',s:'async_chat() 每请求new Langfuse'},
+    {t:'瓶颈3: 无并发控制/限流',s:'Quart Server 无Semaphore'},
+    {t:'瓶颈4: DeepDoc/VLM重复',s:'OCR模型重复初始化 task_service'},
+    {t:'泄漏1: LLMBundle未close',s:'__exit__有但未用上下文管理器'},
+    {t:'泄漏2: 对话消息累积',s:'conv.message.append 无限增长'},
+    {t:'泄漏3: DB连接池未配置',s:'缺少max_connections/stale_timeout'},
+    {t:'泄漏4: GPU张量未释放',s:'Embedding后无gc/empty_cache'},
+  ]},
+  {title:'🟢 代码修复',color:'fix',side:'left',x:500,w:340,h:38,gap:52,startY:140,items:[
+    {t:'resource_cache.py (新增)',s:'LLMBundleCache TTL=300s'},
+    {t:'resource_cache.py (新增)',s:'LangfuseCache TTL=600s'},
+    {t:'resource_cache.py (新增)',s:'ChatConcurrencyLimiter max=10'},
+    {t:'db_models.py (修改)',s:'max_connections=20 stale_timeout=300'},
+    {t:'dialog_service.py (修改)',s:'LLMBundle→get_or_create_bundle'},
+    {t:'dialog_service.py (修改)',s:'Langfuse→LangfuseCache复用'},
+    {t:'dialog_service.py (修改)',s:'添加Semaphore并发控制'},
+    {t:'prometheus_metrics.py (新增)',s:'/api/v1/metrics 8个指标'},
+  ]},
+  {title:'🧪 测试验证',color:'test',side:'right',x:1060,w:340,h:38,gap:52,startY:140,items:[
+    {t:'场景A: 5并发问答',s:'P95 54.5s→52.1s 失败率4%→0%'},
+    {t:'场景B: 3并发混合',s:'QA+文档操作 0崩溃 0失败'},
+    {t:'JMeter脚本×4',s:'5/20并发 3/10并发 场景A+B'},
+    {t:'cProfile CPU剖析',s:'单请求1.31s HTTP TTFB=99.9%'},
+    {t:'Docker Stats监控',s:'RAGFlow 3.2GB MySQL 422MB'},
+    {t:'nvidia-smi GPU',s:'RTX 5060 8GB 1014MiB/8151MiB'},
+    {t:'Redis INFO检查',s:'3294连接 184K命令 0拒绝'},
+    {t:'12h稳定性脚本',s:'stability_monitor.sh 每60s采集'},
+  ]},
+  {title:'📦 产出物',color:'output',side:'right',x:1460,w:300,h:38,gap:52,startY:140,items:[
+    {t:'问题排查分析报告.md',s:'4瓶颈+4泄漏点 代码位置'},
+    {t:'代码优化补丁说明.md',s:'3个补丁 变更明细'},
+    {t:'最终性能测试报告_完整版.md',s:'前后对比 验收结论'},
+    {t:'optimization_actual.patch',s:'145行diff 3文件'},
+    {t:'deployed_resource_cache.py',s:'5.1KB 缓存+限流'},
+    {t:'deployed_prometheus_metrics.py',s:'3.7KB 8指标'},
+    {t:'docker-compose-optimized.yml',s:'资源限制 4核8GB'},
+    {t:'部署与运维文档.md',s:'部署/监控/运维/回滚'},
+  ]},
+];
+
+branches.forEach(b=>{
+  const sy=b.startY;
+  b.items.forEach((item,i)=>{
+    const y=sy+i*b.gap;
+    const fx=b.side==='left'?cx-210:cx+210;
+    svg.appendChild(li(fx,ry+27,b.x+b.w/2,y+b.h/2,b.color));
+    svg.appendChild(rect(b.x,y,b.w,b.h,b.color));
+    svg.appendChild(te(b.x+10,y+17,item.t,'title-branch','12px').setAttribute('fill',{'problem':'#fca5a5','fix':'#6ee7b7','test':'#93c5fd','output':'#fcd34d'}[b.color]));
+    svg.appendChild(te(b.x+10,y+33,item.s.substring(0,50),'title-sm','10px').setAttribute('fill','#94a3b8'));
+  });
+  // Branch title
+  svg.appendChild(te(b.x+5,sy-20,b.title,'title-branch','13px').setAttribute('fill',{'problem':'#f87171','fix':'#34d399','test':'#60a5fa','output':'#fbbf24'}[b.color]));
+});
+
+// Bottom: acceptance
+const ay=610;
+const bot=[{t:'✅ 稳定性验收',s:'失败率0% 无崩溃 Prometheus已集成',c:'accept'},
+  {t:'⚠️ 性能验收',s:'P95=52s(>3s, Ollama瓶颈)',c:'accept'},
+  {t:'✅ 文档验收',s:'部署/运维/回滚 完整',c:'accept'},
+  {t:'⚡ 综合完成度 ~72%',s:'代码优化✅ 性能受限于LLM推理',c:'output'}];
+bot.forEach((item,i)=>{
+  const x=120+i*430;
+  svg.appendChild(li(cx,ry+27,x+200,ay,item.c));
+  svg.appendChild(rect(x,ay,390,45,item.c));
+  svg.appendChild(te(x+10,ay+18,item.t,'','12px').setAttribute('fill','#f472b6'));
+  svg.appendChild(te(x+10,ay+34,item.s,'','10px').setAttribute('fill','#94a3b8'));
+});
+]]>
+</script>
+</svg>
+</body>
+</html>
