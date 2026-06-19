@@ -1,0 +1,30 @@
+# 文档质量评估系统依赖
+# Document Quality Assessment System Dependencies
+
+# 核心依赖
+PyYAML>=6.0
+numpy>=1.21.0
+flask>=2.0.0
+werkzeug>=2.0.0
+
+# PDF处理
+pdfplumber>=0.7.0
+
+# Word文档处理
+python-docx>=0.8.11
+
+# ODT文档处理
+odfpy>=1.4.1
+
+# SimHash相似度检测
+simhash>=2.1.0
+
+# 进度条显示
+tqdm>=4.62.0
+
+# 数据处理
+pandas>=1.3.0
+
+# 测试依赖
+pytest>=6.0.0
+pytest-cov>=3.0.0

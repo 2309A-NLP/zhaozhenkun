@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文档质量评估报告</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #007bff;
+            margin-top: 30px;
+        }
+        .info-section {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .summary-section {
+            margin-bottom: 30px;
+        }
+        .summary-box {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .pending-section {
+            margin-top: 30px;
+        }
+        .pending-item {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .pending-item.warning {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>文档质量评估报告</h1>
+        
+        <div class="info-section">
+            <h3>评估基本信息</h3>
+            <p><strong>评估来源:</strong> /tmp/dqa_validation_9rlh0l9v</p>
+            <p><strong>评估时间:</strong> 2026-06-13T08:55:39.488099</p>
+            <p><strong>总文件数:</strong> 19</p>
+        </div>
+        
+        <div class="summary-section">
+            <h2>评估结果摘要</h2>
+
+            <h3>格式分布统计</h3>
+            <div class="summary-box">格式分布统计摘要:
+总文件数: 19
+格式种类: 3
+
+各格式分布:
+  .txt: 10 个文件 (52.63%)
+  .md: 8 个文件 (42.11%)
+  .html: 1 个文件 (5.26%)
+
+最常见格式: .txt (10 个文件)</div>
+
+            <h3>PDF分类结果</h3>
+            <div class="summary-box">没有PDF文件需要分类</div>
+
+            <h3>文档长度分布</h3>
+            <div class="summary-box">文档长度分布摘要:
+总文件数: 19
+
+基本统计:
+  总字符数: 9,223
+  平均字符数: 485.42
+  最小字符数: 72
+  最大字符数: 1,805
+
+分位数分布:
+  P25: 333.00
+  P50: 376.00
+  P75: 531.00
+  P90: 756.80
+  P99: 1,644.98
+
+长度区间分布:
+  0-100: 1 个文件 (5.26%)
+  100-500: 11 个文件 (57.89%)
+  500-1000: 6 个文件 (31.58%)
+  1000-5000: 1 个文件 (5.26%)
+  5000-10000: 0 个文件 (0.0%)
+  10000-50000: 0 个文件 (0.0%)
+  50000-100000: 0 个文件 (0.0%)
+  100000-500000: 0 个文件 (0.0%)
+  500000以上: 0 个文件 (0.0%)
+
+最长的文件:
+  1. api_guide.md: 1,805 字符
+  2. architecture_design.txt: 916 字符
+  3. rest_api_spec.html: 717 字符
+  4. research_report.txt: 627 字符
+  5. user_guide.txt: 549 字符</div>
+
+            <h3>重复检测结果</h3>
+            <div class="summary-box">重复检测结果摘要:
+总文件数: 19
+
+MD5精确重复:
+  重复组数: 1
+  重复文件数: 1
+
+重复文件详情:
+  组 1: 2 个文件
+    - project_doc_v1.txt
+    - project_doc_v2.txt</div>
+
+            <h3>敏感信息检测</h3>
+            <div class="summary-box">敏感信息检测结果摘要:
+总文件数: 19
+包含敏感信息的文件数: 2
+敏感信息总数: 12
+
+各类型分布:
+  phone: 6 处
+  email: 4 处
+  id_card: 2 处
+
+待审核项目: 12 项
+（需要人工审核的敏感信息已添加到待审核列表）
+
+待审核示例:
+  1. 文件: client_contact.md
+     类型: phone
+     上下文: 手机号：18612349876
+  2. 文件: client_contact.md
+     类型: email
+     上下文: 邮箱：zhao@partner.com
+  3. 文件: employee_roster.txt
+     类型: phone
+     上下文: 张三 手机：13912345678 邮箱：zhangsan@company...</div>
+
+            <h3>文档分类结果</h3>
+            <div class="summary-box">文档分类结果摘要:
+总文件数: 19
+
+内容类型分布:
+  其他: 2 个文件 (10.53%)
+  会议纪要: 2 个文件 (10.53%)
+  研究报告: 5 个文件 (26.32%)
+  设计文档: 2 个文件 (10.53%)
+  用户手册: 2 个文件 (10.53%)
+  API文档: 2 个文件 (10.53%)
+  技术文档: 2 个文件 (10.53%)
+  培训材料: 2 个文件 (10.53%)
+
+质量等级分布:
+  低质量: 5 个文件 (26.32%)
+  中等质量: 12 个文件 (63.16%)
+  待评估: 2 个文件 (10.53%)</div>
+
+        <div class="pending-section">
+            <h2>待审核项目</h2>
+
+            <div class="pending-item warning">
+                <strong>1. client_contact.md</strong><br>
+                <small>类型: phone | 上下文: 手机号：18612349876</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>2. client_contact.md</strong><br>
+                <small>类型: email | 上下文: 邮箱：zhao@partner.com</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>3. employee_roster.txt</strong><br>
+                <small>类型: phone | 上下文: 张三 手机：13912345678 邮箱：zhangsan@company...</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>4. employee_roster.txt</strong><br>
+                <small>类型: phone | 上下文: ...pany.com 身份证号：320102199003071234</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>5. employee_roster.txt</strong><br>
+                <small>类型: email | 上下文: ...三 手机：13912345678 邮箱：zhangsan@company.com 身份证号：32010219900307...</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>6. employee_roster.txt</strong><br>
+                <small>类型: id_card | 上下文: ...an@company.com 身份证号：320102199003071234</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>7. employee_roster.txt</strong><br>
+                <small>类型: phone | 上下文: 李四 手机：13898765432 邮箱：lisi@company.com...</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>8. employee_roster.txt</strong><br>
+                <small>类型: phone | 上下文: ...pany.com 身份证号：110101199102283456</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>9. employee_roster.txt</strong><br>
+                <small>类型: email | 上下文: ...四 手机：13898765432 邮箱：lisi@company.com 身份证号：11010119910228...</small>
+            </div>
+
+            <div class="pending-item warning">
+                <strong>10. employee_roster.txt</strong><br>
+                <small>类型: id_card | 上下文: ...si@company.com 身份证号：110101199102283456</small>
+            </div>
+<p><em>... 还有 2 个待审核项目</em></p></div>
+        <div class="footer">
+            <p>报告由文档质量评估系统自动生成</p>
+        </div>
+    </div>
+</body>
+</html>
