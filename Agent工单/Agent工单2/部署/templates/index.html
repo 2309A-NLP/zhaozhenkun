@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SchedulePro · 日程提醒智能体</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="topnav">
+        <div class="topnav-left">
+            <svg class="logo-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span class="logo-text">Schedule<span class="logo-accent">Pro</span></span>
+        </div>
+        <div class="topnav-right">
+            <div class="nav-stat">
+                <span class="nav-stat-num" id="stat-today">0</span>
+                <span class="nav-stat-label">今日</span>
+            </div>
+            <div class="nav-divider"></div>
+            <div class="nav-stat">
+                <span class="nav-stat-num" id="stat-total">0</span>
+                <span class="nav-stat-label">全部</span>
+            </div>
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                DeepSeek
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主体 -->
+    <div class="layout">
+        <!-- 左：对话 -->
+        <section class="panel panel-chat">
+            <div class="panel-header">
+                <h2>对话</h2>
+                <button class="btn-text" id="clearBtn">清屏</button>
+            </div>
+
+            <div class="chat-body" id="messages"></div>
+
+            <div class="chips-row">
+                <button class="chip" data-msg="添加日程：下午5点开会">添加日程</button>
+                <button class="chip" data-msg="每天早上8点提醒我起床">每日提醒</button>
+                <button class="chip" data-msg="我今天的日程有哪些？">查看日程</button>
+                <button class="chip chip-alt" data-msg="删除日程1">删除</button>
+                <button class="chip" data-msg="每周一上午9点开例会">每周例会</button>
+                <button class="chip chip-alt" data-msg="修改日程1 内容改为买咖啡">修改</button>
+            </div>
+
+            <div class="input-row">
+                <input id="input" type="text"
+                       placeholder="输入日程，如「后天下午3点交项目报告」..."
+                       autocomplete="off">
+                <button class="btn-send" id="sendBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- 右：日程表 -->
+        <section class="panel panel-table">
+            <div class="panel-header">
+                <h2>日程列表</h2>
+                <button class="btn-text" id="refreshBtn">刷新</button>
+            </div>
+            <div class="table-wrap">
+                <table id="recordsTable">
+                    <thead>
+                        <tr>
+                            <th>日期</th><th>时间</th><th>事项</th><th>重复</th><th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="empty-row">
+                            <td colspan="5">
+                                <div class="empty-state">暂无日程数据</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

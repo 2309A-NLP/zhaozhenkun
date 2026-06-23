@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Agent工单2 · 日程提醒智能体 — 架构图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans SC',sans-serif;background:linear-gradient(160deg,#0d0221,#150734,#1a0a3e);color:#e8e0f0;min-height:100vh}
+.hero{text-align:center;padding:36px 20px 16px;position:relative}
+.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:200px;height:2px;background:linear-gradient(90deg,transparent,#ff6b9d,#c44dff,transparent)}
+.hero h1{font-size:36px;font-weight:900;background:linear-gradient(135deg,#f9d423,#ff6b9d,#c44dff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:#998;font-size:14px;margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(550px,1fr));gap:20px;padding:24px;max-width:1800px;margin:0 auto}
+.card{background:rgba(30,15,60,.6);backdrop-filter:blur(16px);border-radius:20px;padding:22px;border:1px solid rgba(255,255,255,.06);transition:.25s}
+.card:hover{border-color:rgba(196,77,255,.2);box-shadow:0 4px 32px rgba(196,77,255,.08)}
+.card.full{grid-column:1/-1}
+.card h2{font-size:17px;font-weight:700;margin-bottom:14px;text-align:center;letter-spacing:.5px}
+.t1{color:#f9d423}.t2{color:#ff6b9d}.t3{color:#c44dff}.t4{color:#6bc5ff}.t5{color:#4ecdc4}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.foot{text-align:center;padding:14px;color:#555;font-size:12px;border-top:1px solid rgba(255,255,255,.04);margin-top:10px}
+</style></head><body>
+<div class="hero"><h1> 日程提醒智能体 · 系统架构</h1><p>Flask + DeepSeek + SQLite + 守护线程调度 · 五层架构</p></div>
+<div class="grid">
+
+<div class="card full"><h2 class="t1"> 全栈五层架构</h2><div class="mermaid">
+graph TB
+    subgraph P[" 展示层 PRESENTATION"]
+        UI["index.html + app.js + style.css<br/>双栏布局 · 聊天气泡 · Toast提醒"]
+    end
+    subgraph W[" 接口层 API GATEWAY"]
+        F["Flask create_app() 工厂"]
+        R1["POST /api/chat"]
+        R2["GET /api/records"]
+        R3["GET /api/notifications"]
+        R4["GET /api/welcome"]
+    end
+    subgraph S[" 业务层 SERVICE"]
+        LS["ScheduleService"]
+        HA["_handle_add 添加"]
+        HQ["_handle_query 查询"]
+        HU["_prepare_update + _confirm_update<br/>两步修改 · 新旧值对比"]
+        HD["_prepare_delete + _confirm_delete<br/>两步删除 · 防误操作"]
+        HW["get_welcome 时段问候"]
+    end
+    subgraph NL[" 解析层 NLU PARSE"]
+        SP2["ScheduleParser"]
+        LLM["Tier1: LLMClient DeepSeek"]
+        RX2["Tier2: Regex 规则引擎"]
+        EXTRACT["时间提取 · 日期识别<br/>内容抽取 · 周期检测"]
+    end
+    subgraph D[" 数据层 DATA"]
+        DB2["ScheduleDatabase"]
+        SQL[("SQLite · schedules表<br/>9列 · 软删除 · 到期查询")]
+    end
+    subgraph B[" 调度层 SCHEDULER"]
+        SCH["ReminderScheduler<br/>守护线程 · 10秒轮询"]
+        Q2[("线程安全通知队列")]
+        TMPL["6种随机提醒模板"]
+    end
+    P-->|"HTTP JSON"|F
+    F-->R1 & R2 & R3 & R4
+    R1-->LS-->SP2-->LLM
+    LLM-->|"DeepSeek API"|API["api.deepseek.com"]
+    SP2-.->|"LLM不可用"|RX2
+    SP2-->EXTRACT
+    LS-->DB2-->SQL
+    LS-.->|"状态机"|STATE["pending_delete_id<br/>pending_update_id"]
+    SCH-->|"每10秒查询"|DB2
+    SCH-->Q2-->R3
+    SCH-->TMPL
+</div></div>
+
+<div class="card full"><h2 class="t2"> 添加日程 · 完整时序</h2><div class="mermaid">
+sequenceDiagram
+    participant U as 👤 浏览器
+    participant F as Flask /api/chat
+    participant LS as ScheduleService
+    participant P as ScheduleParser
+    participant LC as LLMClient
+    participant DS as DeepSeek
+    participant DB as ScheduleDatabase
+
+    U->>F: POST {"message":"下午5点开会"}
+    F->>LS: handle_message()
+    LS->>P: parse("下午5点开会")
+    P->>LC: parse_message() + 时间上下文
+    LC->>DS: Chat Completion<br/>SCHEDULE_SYSTEM_PROMPT + user_msg
+    DS-->>LC: JSON: intent=add, time=17:00, content=开会
+    LC-->>P: parsed dict
+    P->>P: 归一化: time+date+content+repeat_rule
+    P-->>LS: {intent:"add", schedule:{...}}
+
+    LS->>LS: intent=add → _handle_add()
+    LS->>DB: find_schedules() 查重
+    DB-->>LS: [] 无重复
+    LS->>DB: add_schedule(record)
+    DB->>DB: INSERT INTO schedules ...
+    DB-->>LS: new_id=1
+
+    LS-->>F: {reply:"已记录：17:00|0000001|开会"}
+    F-->>U: JSON response
+    U->>U: 添加聊天气泡 + 刷新表格
+</div></div>
+
+<div class="card full"><h2 class="t3"> 提醒触发 · 完整时序</h2><div class="mermaid">
+sequenceDiagram
+    participant SCH as ReminderScheduler<br/>守护线程
+    participant DB as ScheduleDatabase
+    participant Q as 通知队列
+    participant F as Flask
+    participant U as 👤 前端
+
+    loop 每10秒轮询
+        SCH->>SCH: sleep(10) + 分钟变化检测
+        SCH->>DB: find_due_schedules("17:00","2026-06-23")
+        DB->>DB: 匹配 exact+time<br/>OR daily+_is_due_today<br/>OR weekly+weekday<br/>OR monthly+day
+        DB-->>SCH: [到期日程列表]
+        alt 有到期日程
+            SCH->>SCH: 随机6选1提醒模板
+            SCH->>Q: push("温馨提醒：开会的时间到啦，主人！")
+            SCH->>DB: update_reminded() 防重复
+        end
+    end
+    loop 每5秒轮询
+        U->>F: GET /api/notifications
+        F->>Q: get_notifications() Lock+清空
+        Q-->>F: [提醒消息列表]
+        F-->>U: JSON notifications
+        U->>U: Toast 弹窗 + 气泡展示
+    end
+</div></div>
+
+<div class="card"><h2 class="t4"> 数据流全景</h2><div class="mermaid">
+graph LR
+    subgraph Input[" 输入"]
+        NL["下午5点开会<br/>每天早上8点提醒"]
+    end
+    subgraph Parse[" 解析"]
+        Intent["意图分类 add/query/delete/update"]
+        Entity["实体提取 time·date·content·repeat"]
+    end
+    subgraph Logic[" 业务"]
+        Add["添加+去重"]
+        Query2["查询+格式化"]
+        Update["两步修改"]
+        Delete["两步删除"]
+    end
+    subgraph Store[" 存储"]
+        DB3[("schedules 表")]
+    end
+    subgraph Notify[" 提醒"]
+        SCH2["守护线程 10s轮询"]
+        Toast["Toast 弹窗提醒"]
+    end
+    subgraph Output[" 输出"]
+        Reply2["回复文本"]
+        Table["数据表格"]
+    end
+    NL-->Intent-->Entity-->Add & Query2 & Update & Delete-->DB3
+    DB3-->Reply2-->Table
+    SCH2-->DB3-->Toast
+</div></div>
+
+<div class="card"><h2 class="t5"> 部署架构</h2><div class="mermaid">
+graph TB
+    subgraph Server[" 服务器"]
+        Py["Python 3.10+"]
+        Flask2["Flask :5051"]
+        SQLite2[("SQLite 嵌入式DB")]
+        Thread["守护线程 Scheduler"]
+    end
+    subgraph Cloud[" 云端"]
+        DSAPI["DeepSeek Chat API<br/>deepseek-chat · temp=0.1"]
+    end
+    subgraph Config[" 配置"]
+        CFG["部署/config.json<br/>LLM Key · Port · Model"]
+    end
+    subgraph Client[" 浏览器"]
+        SPA["单页应用<br/>聊天面板 + 日程表格"]
+        Poll["5秒轮询提醒<br/>30秒刷新表格"]
+    end
+    Flask2-->Py
+    Flask2-->|"openai库"|DSAPI
+    Flask2-->SQLite2
+    Thread-->|"每10秒"|SQLite2
+    CFG-->Flask2
+    SPA-->|"http://127.0.0.1:5051"|Flask2
+    Poll-->SPA
+</div></div>
+
+<div class="card"><h2 class="t1"> API 路由</h2><div class="mermaid">
+graph LR
+    A["GET / 首页渲染"] & B["POST /api/chat<br/>NL消息 → reply+data"] & C["GET /api/records<br/>全部日程 → JSON列表"] & D["GET /api/notifications<br/>提醒队列 → Toast"] & E["GET /api/welcome<br/>时段问候 → 消息文本"]
+</div></div>
+
+<div class="card"><h2 class="t2"> 设计模式 & 技术栈</h2><div class="mermaid">
+graph TB
+    subgraph Patterns[" 设计模式"]
+        P1["Factory 工厂 · create_app()"]
+        P2["Dependency Injection 依赖注入"]
+        P3["Strategy 策略 · LLM/Regex 切换"]
+        P4["State Machine 状态机 · 两步确认"]
+        P5["Observer 观察者 · 轮询通知"]
+        P6["Soft Delete 软删除 · enabled=0"]
+    end
+    subgraph Tech[" 技术选型"]
+        T1["Flask 3.0 · Web框架"]
+        T2["openai库 · DeepSeek兼容"]
+        T3["SQLite · 零配置数据库"]
+        T4["守护线程 · threading.Thread"]
+        T5["原生JS · 无前端框架"]
+        T6["CSS Variables · 设计系统"]
+    end
+    subgraph Features[" 核心特性"]
+        F1["LLM优先解析"]
+        F2["Regex规则回退"]
+        F3["6种随机提醒语"]
+        F4["分钟去重检测"]
+        F5["每日/周/月重复"]
+        F6["去重+白名单校验"]
+    end
+</div></div>
+
+</div>
+<div class="foot">Agent工单2 · 日程提醒智能体 · 五层架构 · LLM + SQLite + 守护线程</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#150734',primaryTextColor:'#e8e0f0',primaryBorderColor:'#c44dff',lineColor:'#ff6b9d',secondaryColor:'#1a0a3e',tertiaryColor:'#0d0221',noteBkgColor:'#302b63',noteTextColor:'#e8e0f0'},flowchart:{useMaxWidth:true,htmlLabels:true},sequence:{useMaxWidth:true,boxMargin:12}});</script>
+</body></html>

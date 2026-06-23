@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent工单2 · 日程提醒智能体 — 思维导图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans SC',sans-serif;background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);color:#eee;min-height:100vh}
+.hero{text-align:center;padding:40px 20px 20px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 30% 50%,rgba(255,107,157,0.15),transparent 50%),radial-gradient(ellipse at 70% 50%,rgba(78,205,196,0.12),transparent 50%)}
+.hero h1{font-size:38px;font-weight:900;background:linear-gradient(135deg,#ff6b9d,#c44dff,#4ecdc4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;position:relative;z-index:1}
+.hero .sub{color:#aab;font-size:15px;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:6px;position:relative;z-index:1}
+.badge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:1px}
+.badge-pink{background:rgba(255,107,157,.2);color:#ff6b9d;border:1px solid rgba(255,107,157,.3)}
+.badge-purple{background:rgba(196,77,255,.2);color:#c44dff;border:1px solid rgba(196,77,255,.3)}
+.badge-teal{background:rgba(78,205,196,.2);color:#4ecdc4;border:1px solid rgba(78,205,196,.3)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:24px;padding:20px 30px 30px;max-width:1800px;margin:0 auto}
+.card{background:rgba(255,255,255,.04);backdrop-filter:blur(20px);border-radius:24px;padding:24px;border:1px solid rgba(255,255,255,.08);transition:all .3s}
+.card:hover{border-color:rgba(255,255,255,.15);box-shadow:0 8px 40px rgba(0,0,0,.3);transform:translateY(-2px)}
+.card.full{grid-column:1/-1}
+.card h2{font-size:18px;margin-bottom:18px;text-align:center;font-weight:700;letter-spacing:.5px}
+.h2-pink{color:#ff6b9d}.h2-purple{color:#c44dff}.h2-teal{color:#4ecdc4}.h2-gold{color:#ffd93d}.h2-blue{color:#6bc5ff}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.foot{text-align:center;padding:16px;color:#555;font-size:12px;border-top:1px solid rgba(255,255,255,.05)}
+</style></head><body>
+<div class="hero">
+  <h1>⏰ 日程提醒 AI 智能体</h1>
+  <div class="sub">
+    <span class="badge badge-pink">LLM 语义理解</span>
+    <span class="badge badge-purple">后台定时调度</span>
+    <span class="badge badge-teal">自然语言交互</span>
+  </div>
+</div>
+<div class="grid">
+
+<div class="card"><h2 class="h2-pink">🧩 项目全景</h2><div class="mermaid">
+mindmap
+  root((日程提醒 Agent))
+    Web 前端层
+      index.html 双栏布局
+      app.js 交互逻辑
+      style.css 海军金主题
+      聊天气泡 UI
+      日程数据表格
+      实时 Toast 提醒
+      建议快捷指令
+    接口层
+      Flask create_app 工厂
+      POST /api/chat 对话
+      GET /api/records 记录
+      GET /api/notifications 提醒
+      GET /api/welcome 欢迎
+    NLU 解析引擎
+      LLMClient DeepSeek API
+      ScheduleParser 意图分类
+      LLM 优先解析
+      Regex 规则回退
+      时间表达式提取
+      日期智能识别
+      重复规则检测
+    业务编排层
+      ScheduleService 核心
+      add 添加日程
+      query 查询日程
+      update 两步修改
+      delete 两步删除
+      去重检测
+    数据层
+      ScheduleDatabase
+      SQLite schedules 表
+      软删除 enabled=0
+      到期日程查询
+      提醒状态追踪
+    后台调度器
+      ReminderScheduler
+      守护线程 10秒轮询
+      6种随机提醒语
+      分钟去重机制
+      线程安全通知队列
+</div></div>
+
+<div class="card"><h2 class="h2-purple">⚡ 核心对话流程</h2><div class="mermaid">
+graph LR
+    U["👤 用户"]-->|"下午5点开会"|W["🌐 Flask /api/chat"]
+    W-->S["🔀 ScheduleService<br/>handle_message()"]
+    S-->P["🧠 ScheduleParser<br/>parse()"]
+    P-->|"Tier1"|L["🤖 LLMClient<br/>DeepSeek API"]
+    P-.->|"Tier2 回退"|RX["📝 Regex 规则"]
+    L-->|"JSON intent/add"|P
+    RX-->P
+    P-->S
+    S-->D["🗄️ ScheduleDatabase<br/>INSERT/QUERY/UPDATE"]
+    D-->R["💬 回复 + 结构化数据"]
+    R-->U
+    S-.->|"两步确认状态"|ST["pending_delete_id<br/>pending_update_id"]
+</div></div>
+
+<div class="card"><h2 class="h2-teal">🎯 8 种意图分类</h2><div class="mermaid">
+mindmap
+  root((意图体系))
+    add 添加日程
+      时间提取 HH:MM
+      日期识别 YYYY-MM-DD
+      内容抽取
+      周期规则 daily weekly monthly
+    query 查询日程
+      今天/明天/全部
+      编号列表展示
+      状态标记
+    delete 删除确认
+      按 ID 精确匹配
+      按关键词模糊匹配
+      展示详情防误删
+    confirm_delete 执行删除
+      软删除 enabled=0
+      清空 pending 状态
+    update 修改确认
+      字段级增量修改
+      全文替换修改
+      新旧值对比展示
+    confirm_update 执行修改
+      白名单字段校验
+      执行 UPDATE
+    confirm_delete_keyword 关键词删
+    invalid 无效输入兜底
+</div></div>
+
+<div class="card"><h2 class="h2-gold">📁 项目目录结构</h2><div class="mermaid">
+graph TD
+    R["📁 Agent工单2/"]
+    R-->RN["run.py 主入口"]
+    R-->RD["00_README.md"]
+    R-->RQ["requirements.txt"]
+    R-->DB[("schedule_notes.db")]
+    R-->DEV["📁 研发/"]
+    R-->DEP["📁 部署/"]
+    R-->TST["📁 测试/"]
+    R-->DSN["📁 设计/"]
+    R-->OPT["📁 优化/"]
+
+    DEV-->D1["database.py 数据层 595行"]
+    DEV-->D2["parser.py 解析器 875行"]
+    DEV-->D3["service.py 业务层 533行"]
+    DEV-->D4["scheduler.py 调度器 236行"]
+    DEV-->D5["web_app.py Web工厂 204行"]
+    DEV-->D6["llm_client.py LLM客户端 202行"]
+    DEV-->D7["logger_config.py 日志 95行"]
+
+    DEP-->E1["config.json 运行时配置"]
+    DEP-->E2["templates/index.html"]
+    DEP-->E3["static/app.js 241行"]
+    DEP-->E4["static/style.css 485行"]
+    DEP-->E5["logs/ 运行日志"]
+
+    TST-->T1["test_app.py 12个测试用例"]
+    TST-->T2["测试说明.md"]
+</div></div>
+
+<div class="card"><h2 class="h2-blue">🗄️ 数据库设计</h2><div class="mermaid">
+erDiagram
+    schedules {
+        INTEGER id PK "自增主键·删改用"
+        TEXT schedule_time "HH:MM 时间"
+        TEXT schedule_date "YYYY-MM-DD 日期"
+        TEXT content "日程内容描述"
+        TEXT repeat_rule "none/daily/weekly/monthly"
+        TEXT repeat_detail "周一/Monday/15号"
+        INTEGER enabled "1有效 0已取消"
+        TEXT last_reminded "上次提醒日期·防重复"
+        TEXT created_at "创建时间戳"
+    }
+</div></div>
+
+<div class="card"><h2 class="h2-purple">🔄 ScheduleParser 两级解析</h2><div class="mermaid">
+graph TB
+    I["用户输入"]-->E{"空消息?"}-->|是|IV["invalid"]
+    E-->|否|LLM["_try_llm_parse() LLM解析"]
+    LLM-->OK{"有效JSON?"}
+    OK-->|是|VAL["字段校验+归一化"]
+    OK-->|否|KW{"关键词匹配"}
+    KW-->|确认修改|CU["confirm_update"]
+    KW-->|确认删除/是/好的|CD["confirm_delete"]
+    KW-->|修改日程|UP["_parse_update()"]
+    KW-->|删除日程/取消|DL["_parse_delete()"]
+    KW-->|日程有哪些/查看|QR["_parse_query()"]
+    KW-->|有时间信息|AD["_parse_add()"]
+    KW-->|无匹配|IV2["invalid"]
+    AD-->EXT["_extract_time() 提取HH:MM<br/>_extract_date() 提取日期<br/>_extract_content() 提取内容<br/>检测 repeat_rule"]
+</div></div>
+
+<div class="card"><h2 class="h2-teal">🔔 后台调度机制</h2><div class="mermaid">
+graph TB
+    T["ReminderScheduler 守护线程"]
+    T-->|"每10秒"|CK["_check_due()"]
+    CK-->DB2["find_due_schedules()"]
+    DB2-->RULES{"匹配规则"}
+    RULES-->|"精确时间匹配"|EXACT["schedule_time == current_time"]
+    RULES-->|"每日重复"|DAILY["repeat_rule == daily<br/>_is_due_today()"]
+    RULES-->|"每周重复"|WEEKLY["repeat_rule == weekly<br/>匹配星期几"]
+    RULES-->|"每月重复"|MONTHLY["repeat_rule == monthly<br/>匹配几号"]
+    EXACT & DAILY & WEEKLY & MONTHLY-->GEN["生成提醒文本<br/>6种随机模板"]
+    GEN-->Q[("通知队列<br/>threading.Lock")]
+    Q-->|"前端每5秒轮询"|FE["GET /api/notifications"]
+    FE-->TOAST["🔔 Toast 弹窗提醒"]
+    GEN-->UPD["update_reminded()<br/>防同日重复提醒"]
+</div></div>
+
+</div>
+<div class="foot">Agent工单2 · 日程提醒智能体 · 自然语言 × LLM × 后台调度</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#ff6b9d',primaryTextColor:'#eee',primaryBorderColor:'#c44dff',lineColor:'#4ecdc4',secondaryColor:'#302b63',tertiaryColor:'#24243e',fontFamily:'Noto Sans SC'},mindmap:{useMaxWidth:true}});</script>
+</body></html>
