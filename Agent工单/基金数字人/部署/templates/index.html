@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金数字人 — 智能问答播报系统</title>
+    <style>
+        /* ===== CSS变量 & 全局 ===== */
+        :root {
+            --bg-primary: #0b0d17;
+            --bg-secondary: #12152a;
+            --bg-card: #1a1d35;
+            --bg-input: #14172b;
+            --accent-1: #6366f1;
+            --accent-2: #8b5cf6;
+            --accent-3: #06b6d4;
+            --accent-gold: #f59e0b;
+            --text-primary: #eef0ff;
+            --text-secondary: #9498b8;
+            --text-muted: #636884;
+            --border: #252845;
+            --success: #10b981;
+            --user-bubble: linear-gradient(135deg, #4f46e5, #7c3aed);
+            --ai-bubble: #1e2140;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh; display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ===== 背景光效 ===== */
+        .bg-glow { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.12; pointer-events: none; z-index: 0; }
+        .bg-glow.g1 { width: 500px; height: 500px; background: var(--accent-1); top: -200px; left: -150px; }
+        .bg-glow.g2 { width: 400px; height: 400px; background: var(--accent-2); bottom: -150px; right: -100px; }
+        .bg-glow.g3 { width: 300px; height: 300px; background: var(--accent-3); top: 40%; left: 50%; transform: translate(-50%, -50%); }
+
+        /* ===== 主布局 ===== */
+        .app-layout {
+            display: flex; flex: 1; overflow: hidden; position: relative; z-index: 1;
+        }
+        .main-panel {
+            flex: 1; display: flex; flex-direction: column; min-width: 0;
+        }
+        .side-panel {
+            width: 380px; border-left: 1px solid var(--border);
+            background: rgba(18,21,42,0.7); backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            transition: all 0.3s;
+        }
+        .side-panel.collapsed { width: 0; border: none; overflow: hidden; }
+
+        /* ===== 头部 ===== */
+        .header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 20px; border-bottom: 1px solid var(--border);
+            background: rgba(18,21,42,0.85); backdrop-filter: blur(20px);
+        }
+        .header .logo { display: flex; align-items: center; gap: 10px; }
+        .header .logo .icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+        .header .logo h1 { font-size: 17px; font-weight: 600; }
+        .header .controls { display: flex; align-items: center; gap: 12px; }
+
+        /* 数字人开关 */
+        .dh-toggle {
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 20px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            cursor: pointer; transition: all 0.2s; font-size: 13px;
+        }
+        .dh-toggle.active { border-color: var(--accent-1); background: rgba(99,102,241,0.1); }
+        .dh-toggle .toggle-dot {
+            width: 20px; height: 10px; border-radius: 5px; background: var(--border);
+            position: relative; transition: all 0.2s;
+        }
+        .dh-toggle.active .toggle-dot { background: var(--accent-1); }
+        .dh-toggle .toggle-dot::after {
+            content: ''; position: absolute; top: 1px; left: 1px;
+            width: 8px; height: 8px; border-radius: 50%; background: #fff;
+            transition: all 0.2s;
+        }
+        .dh-toggle.active .toggle-dot::after { left: 11px; }
+
+        .header .status {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--text-secondary);
+        }
+        .header .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        .collapse-btn {
+            width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+        }
+        .collapse-btn:hover { border-color: var(--accent-1); }
+
+        /* 顶栏发音人选择器 */
+        .voice-selector-header {
+            padding: 5px 10px; border-radius: 8px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            color: var(--text-primary); font-size: 12px; font-family: inherit;
+            cursor: pointer; outline: none;
+        }
+        .voice-selector-header:focus { border-color: var(--accent-1); }
+        .voice-selector-header optgroup { font-weight: 600; color: var(--text-secondary); }
+
+        /* ===== 聊天区域 ===== */
+        .chat-container {
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .chat-container::-webkit-scrollbar { width: 5px; }
+        .chat-container::-webkit-scrollbar-track { background: transparent; }
+        .chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        /* 欢迎界面 */
+        .welcome {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            flex: 1; text-align: center; gap: 12px; padding: 20px;
+        }
+        .welcome .w-icon {
+            width: 70px; height: 70px; border-radius: 20px;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            display: flex; align-items: center; justify-content: center; font-size: 36px;
+            margin-bottom: 8px; box-shadow: 0 8px 32px rgba(99,102,241,0.3);
+        }
+        .welcome h2 { font-size: 22px; font-weight: 600; }
+        .welcome p { color: var(--text-secondary); font-size: 14px; max-width: 420px; line-height: 1.6; }
+        .welcome .tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+        .welcome .tags span {
+            padding: 6px 14px; border-radius: 20px; font-size: 12px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+        }
+        .welcome .tags span:hover { border-color: var(--accent-1); color: var(--accent-1); }
+
+        /* 消息气泡 */
+        .message { display: flex; gap: 10px; animation: slideUp 0.3s ease-out; max-width: 80%; }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message.ai { align-self: flex-start; }
+        .message .avatar {
+            width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+        }
+        .message.user .avatar { background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); }
+        .message.ai .avatar { background: var(--bg-card); border: 1px solid var(--border); }
+        .message .bubble {
+            padding: 12px 16px; border-radius: var(--radius-sm);
+            font-size: 14px; line-height: 1.65; word-break: break-word;
+        }
+        .message.user .bubble { background: var(--user-bubble); color: #fff; border-bottom-right-radius: 3px; }
+        .message.ai .bubble { background: var(--ai-bubble); color: var(--text-primary); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+        .message .time { font-size: 10px; color: var(--text-muted); margin-top: 4px; padding: 0 4px; }
+
+        /* AI 消息中的数字人播放按钮 */
+        .play-dh-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 8px; padding: 6px 14px; border-radius: 18px;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            color: #fff; border: none; cursor: pointer; font-size: 12px;
+            transition: all 0.2s;
+        }
+        .play-dh-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(99,102,241,0.4); }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 加载动画 */
+        .typing { display: flex; gap: 5px; padding: 4px 0; }
+        .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.4s infinite ease-in-out; }
+        .typing span:nth-child(1) { animation-delay: 0s; }
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce { 0%,80%,100%{transform:scale(0.7);opacity:0.5;} 40%{transform:scale(1);opacity:1;} }
+
+        /* ===== 底部输入区 ===== */
+        .input-area {
+            padding: 14px 20px 18px; border-top: 1px solid var(--border);
+            background: rgba(18,21,42,0.85); backdrop-filter: blur(20px);
+        }
+        .input-wrapper {
+            display: flex; gap: 10px; align-items: flex-end;
+            background: var(--bg-input); border-radius: var(--radius);
+            border: 1px solid var(--border); padding: 6px;
+            transition: border-color 0.25s;
+        }
+        .input-wrapper:focus-within { border-color: var(--accent-1); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+        .input-wrapper textarea {
+            flex: 1; background: transparent; border: none; outline: none;
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            padding: 8px 10px; resize: none; min-height: 24px; max-height: 120px;
+        }
+        .input-wrapper textarea::placeholder { color: var(--text-muted); }
+        .voice-btn, .send-btn {
+            width: 40px; height: 40px; border-radius: 50%; border: none;
+            cursor: pointer; font-size: 18px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.25s;
+        }
+        .voice-btn { background: var(--bg-card); color: var(--text-secondary); border: 1px solid var(--border); }
+        .voice-btn:hover { border-color: var(--accent-3); color: var(--accent-3); }
+        .voice-btn.recording { background: #ef4444; color: #fff; border-color: #ef4444; animation: pulse 1s infinite; }
+        .send-btn { background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); color: #fff; }
+        .send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(99,102,241,0.4); }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .input-hint { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+        /* ===== 侧边栏：数字人 ===== */
+        .side-panel-header {
+            padding: 16px 20px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .side-panel-header h3 { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        .digital-human-display {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            padding: 20px; overflow-y: auto;
+        }
+
+        /* 数字人视频/图片区 */
+        .dh-video-container {
+            width: 100%; aspect-ratio: 9/16; max-height: 500px;
+            border-radius: var(--radius); overflow: hidden;
+            background: var(--bg-card); border: 1px solid var(--border);
+            position: relative; display: flex; align-items: center; justify-content: center;
+        }
+        .dh-video-container video, .dh-video-container img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        .dh-video-container .placeholder {
+            text-align: center; color: var(--text-muted);
+        }
+        .dh-video-container .placeholder .ph-icon { font-size: 64px; margin-bottom: 12px; }
+
+        /* 数字人状态指示 */
+        .dh-status {
+            margin-top: 12px; padding: 8px 16px; border-radius: 20px;
+            font-size: 12px; display: flex; align-items: center; gap: 6px;
+        }
+        .dh-status.idle { background: var(--bg-card); color: var(--text-muted); }
+        .dh-status.speaking { background: rgba(99,102,241,0.15); color: var(--accent-1); }
+        .dh-status.generating { background: rgba(245,158,11,0.15); color: var(--accent-gold); }
+        .dh-status .status-anim {
+            width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+        }
+        .dh-status.speaking .status-anim, .dh-status.generating .status-anim {
+            animation: pulse 0.8s infinite;
+        }
+
+        /* 配置区 */
+        .dh-config {
+            padding: 16px 20px; border-top: 1px solid var(--border);
+        }
+        .dh-config label {
+            font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;
+        }
+        .dh-config select, .dh-config input {
+            width: 100%; padding: 8px 12px; border-radius: 8px;
+            background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--text-primary); font-size: 13px; margin-bottom: 12px;
+            outline: none; font-family: inherit;
+        }
+        .dh-config select:focus, .dh-config input:focus { border-color: var(--accent-1); }
+        .dh-config .upload-avatar-btn {
+            width: 100%; padding: 8px; border-radius: 8px;
+            background: var(--bg-card); border: 1px dashed var(--border);
+            color: var(--text-secondary); cursor: pointer; font-size: 13px;
+            transition: all 0.2s; text-align: center;
+        }
+        .dh-config .upload-avatar-btn:hover { border-color: var(--accent-1); color: var(--accent-1); }
+        #avatarInput { display: none; }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 900px) {
+            .side-panel { width: 0; border: none; overflow: hidden; position: absolute; right: 0; top: 0; bottom: 0; z-index: 10; }
+            .side-panel.mobile-open { width: 340px; border-left: 1px solid var(--border); }
+            .collapse-btn { display: flex !important; }
+        }
+        @media (max-width: 640px) {
+            .header { padding: 10px 14px; }
+            .header .logo h1 { font-size: 14px; }
+            .chat-container { padding: 14px; }
+            .input-area { padding: 10px 14px 14px; }
+            .message { max-width: 90%; }
+            .dh-toggle { font-size: 12px; padding: 5px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 背景光效 -->
+<div class="bg-glow g1"></div><div class="bg-glow g2"></div><div class="bg-glow g3"></div>
+
+<!-- 顶部导航 -->
+<header class="header">
+    <div class="logo">
+        <div class="icon">💹</div>
+        <h1>基金数字人 · 智能问答</h1>
+    </div>
+    <div class="controls">
+        <!-- 数字人模式开关 -->
+        <div class="dh-toggle active" id="dhToggle" onclick="toggleDigitalHuman()" title="切换数字人播报模式">
+            <span>🎙 数字人</span>
+            <div class="toggle-dot"></div>
+        </div>
+        <!-- 发音人选择 -->
+        <select class="voice-selector-header" id="voiceSelectHeader" onchange="changeVoice(this.value)" title="选择播报声音">
+            <optgroup label="👩 女声">
+                <option value="zh-CN-XiaoyiNeural" selected>晓伊 · 温柔女声</option>
+                <option value="zh-CN-XiaoxiaoNeural">晓晓 · 活泼女声</option>
+                <option value="zh-CN-XiaochenNeural">晓晨 · 自然女声</option>
+            </optgroup>
+            <optgroup label="👨 男声">
+                <option value="zh-CN-YunxiNeural">云希 · 新闻男声</option>
+                <option value="zh-CN-YunjianNeural">云健 · 沉稳男声</option>
+                <option value="zh-CN-YunyangNeural">云扬 · 播音男声</option>
+            </optgroup>
+        </select>
+        <div class="status"><span class="dot"></span> DeepSeek 在线</div>
+        <button class="collapse-btn" onclick="toggleSidePanel()" title="数字人面板">👤</button>
+    </div>
+</header>
+
+<!-- 主体布局 -->
+<div class="app-layout">
+    <!-- 左侧：聊天区 -->
+    <div class="main-panel">
+        <div class="chat-container" id="chatContainer">
+            <div class="welcome" id="welcomeBlock">
+                <div class="w-icon">📊</div>
+                <h2>你好，我是基金数据数字人助手</h2>
+                <p>基于10张金融数据表，支持自然语言查询 + 数字人语音播报。打开数字人模式，体验真人播报效果。</p>
+                <div class="tags">
+                    <span onclick="askTag('景顺长城中短债债券C基金在20210331的前三大持仓债券是什么？')">🔍 基金持仓查询</span>
+                    <span onclick="askTag('20210105综合金融行业涨跌幅最大的股票是？')">📈 涨跌幅排名</span>
+                    <span onclick="askTag('2019年嘉实基金成立了多少基金？')">🏢 基金公司统计</span>
+                    <span onclick="askTag('股票002244在20191220的收盘价？')">💹 股票行情</span>
+                    <span onclick="askTag('20210415建筑材料行业涨幅超5%的股票数量？')">📊 行业分析</span>
+                    <span onclick="askTag('2021年三季度有多少家基金发生净赎回？')">📉 赎回统计</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部输入区 -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="questionInput" rows="1"
+                    placeholder="输入你的基金/股票问题，按 Enter 发送..."
+                    onkeydown="handleKeyDown(event)"></textarea>
+                <button class="voice-btn" id="voiceBtn" onclick="toggleVoiceInput()" title="语音输入">🎤</button>
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="发送">➤</button>
+            </div>
+            <div class="input-hint">按 Enter 发送 · Shift+Enter 换行 · 打开🎙数字人模式体验播报</div>
+        </div>
+    </div>
+
+    <!-- 右侧：数字人面板 -->
+    <div class="side-panel" id="sidePanel">
+        <div class="side-panel-header">
+            <h3>🤖 数字人播报</h3>
+        </div>
+
+        <!-- 数字人显示区 -->
+        <div class="digital-human-display">
+            <div class="dh-video-container" id="dhVideoContainer">
+                <!-- 默认显示头像或占位 -->
+                <div class="placeholder" id="dhPlaceholder">
+                    <div class="ph-icon">🤖</div>
+                    <p>数字人待命</p>
+                    <p style="font-size:12px;color:var(--text-muted);">提问后自动播报</p>
+                </div>
+                <video id="dhVideo" style="display:none;" controls playsinline></video>
+                <audio id="dhAudio" style="display:none;" controls></audio>
+            </div>
+
+            <!-- 状态指示 -->
+            <div class="dh-status idle" id="dhStatus">
+                <span class="status-anim"></span>
+                <span id="dhStatusText">待命中</span>
+            </div>
+
+            <!-- 进度条（生成视频时显示） -->
+            <div style="width:100%;height:3px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden;">
+                <div id="dhProgress" style="width:0%;height:100%;background:linear-gradient(90deg,var(--accent-1),var(--accent-2));transition:width 0.5s;"></div>
+            </div>
+        </div>
+
+        <!-- 配置区 -->
+        <div class="dh-config">
+            <label>🎤 发音人选择</label>
+            <select id="voiceSelect" onchange="changeVoice(this.value)">
+                <optgroup label="👩 女声">
+                    <option value="zh-CN-XiaoyiNeural" selected>晓伊 — 温柔亲切 (默认)</option>
+                    <option value="zh-CN-XiaoxiaoNeural">晓晓 — 活泼自然</option>
+                    <option value="zh-CN-XiaochenNeural">晓晨 — 自然对话</option>
+                </optgroup>
+                <optgroup label="👨 男声">
+                    <option value="zh-CN-YunxiNeural">云希 — 新闻播报</option>
+                    <option value="zh-CN-YunjianNeural">云健 — 沉稳专业</option>
+                    <option value="zh-CN-YunyangNeural">云扬 — 新闻播音</option>
+                </optgroup>
+            </select>
+
+            <label>📷 数字人形象</label>
+            <input type="file" id="avatarInput" accept="image/*" onchange="uploadAvatar()">
+            <button class="upload-avatar-btn" onclick="document.getElementById('avatarInput').click()">
+                📤 上传头像照片
+            </button>
+            <p style="font-size:10px;color:var(--text-muted);margin-top:4px;">
+                上传正面照片，SadTalker 模式生成说话视频<br>
+                未上传则使用 TTS 纯语音播报
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ===== 全局状态 =====
+    const chatContainer = document.getElementById('chatContainer');
+    const questionInput = document.getElementById('questionInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const welcomeBlock = document.getElementById('welcomeBlock');
+    const dhToggle = document.getElementById('dhToggle');
+    const sidePanel = document.getElementById('sidePanel');
+    const dhVideo = document.getElementById('dhVideo');
+    const dhAudio = document.getElementById('dhAudio');
+    const dhPlaceholder = document.getElementById('dhPlaceholder');
+    const dhStatus = document.getElementById('dhStatus');
+    const dhStatusText = document.getElementById('dhStatusText');
+    const dhProgress = document.getElementById('dhProgress');
+    const voiceSelect = document.getElementById('voiceSelect');
+
+    let isProcessing = false;
+    let digitalHumanEnabled = true;  // 数字人模式开关
+    let currentVoice = 'zh-CN-XiaoyiNeural';
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    // ===== 输入框自适应 =====
+    questionInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+
+    // ===== 键盘事件 =====
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    }
+
+    // ===== 点击推荐标签 =====
+    function askTag(question) {
+        questionInput.value = question;
+        questionInput.style.height = 'auto';
+        sendMessage();
+    }
+
+    // ===== 数字人开关 =====
+    function toggleDigitalHuman() {
+        digitalHumanEnabled = !digitalHumanEnabled;
+        if (digitalHumanEnabled) {
+            dhToggle.classList.add('active');
+        } else {
+            dhToggle.classList.remove('active');
+        }
+    }
+
+    // ===== 侧边栏折叠 =====
+    function toggleSidePanel() {
+        sidePanel.classList.toggle('collapsed');
+    }
+
+    // ===== 切换发音人 =====
+    function changeVoice(voiceId) {
+        currentVoice = voiceId;
+        // 同步两个下拉框
+        document.getElementById('voiceSelect').value = voiceId;
+        document.getElementById('voiceSelectHeader').value = voiceId;
+        // 同步到后端
+        fetch('/api/digital-human/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ voice: voiceId })
+        }).catch(() => {});
+    }
+
+    // ===== 上传头像 =====
+    function uploadAvatar() {
+        const file = document.getElementById('avatarInput').files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('avatar', file);
+
+        fetch('/api/digital-human/upload-avatar', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // 更新侧边栏显示
+                dhPlaceholder.innerHTML = `<img src="${data.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;">`;
+                console.log('头像上传成功:', data.avatar_url);
+            } else {
+                alert('头像上传失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(err => {
+            console.error('头像上传失败:', err);
+            alert('头像上传失败');
+        });
+    }
+
+    // ===== 加载数字人配置 =====
+    function loadDHConfig() {
+        fetch('/api/digital-human/config')
+        .then(r => r.json())
+        .then(config => {
+            if (config.voice) {
+                voiceSelect.value = config.voice;
+                document.getElementById('voiceSelectHeader').value = config.voice;
+                currentVoice = config.voice;
+            }
+            if (config.avatar) {
+                // 显示用户上传的头像
+                dhPlaceholder.innerHTML = `<img src="/uploads/${config.avatar.split('/').pop().split('\\\\').pop()}" style="width:100%;height:100%;object-fit:cover;border-radius:16px;" onerror="
+                    this.onerror=null;
+                    this.parentElement.innerHTML='<div class=placeholder><div class=ph-icon>🤖</div><p>数字人待命</p><p style=font-size:12px;color:var(--text-muted)>上传照片开始</p></div>';
+                ">`;
+            }
+        })
+        .catch(() => {
+            // 默认尝试加载 avatar.jpg
+            dhPlaceholder.innerHTML = `<img src="/output/../avatar.jpg" style="width:100%;height:100%;object-fit:cover;border-radius:16px;" onerror="
+                this.onerror=null;
+                this.parentElement.innerHTML='<div class=placeholder><div class=ph-icon>🤖</div><p>数字人待命</p><p style=font-size:12px;color:var(--text-muted)>上传照片开始</p></div>';
+            ">`;
+        });
+    }
+
+    // ===== 更新数字人状态 =====
+    function setDHStatus(status, text, progress) {
+        dhStatus.className = 'dh-status ' + status;
+        dhStatusText.textContent = text;
+        if (progress !== undefined) {
+            dhProgress.style.width = progress + '%';
+        }
+    }
+
+    // ===== 播放数字人视频/音频 =====
+    function playDigitalHuman(videoUrl, audioUrl) {
+        if (videoUrl) {
+            // 有视频：显示视频并自动播放
+            dhPlaceholder.style.display = 'none';
+            dhAudio.style.display = 'none';
+            dhVideo.style.display = 'block';
+            dhVideo.src = videoUrl;
+            dhVideo.load();
+            dhVideo.play().catch(e => {
+                console.log('自动播放失败，显示控件:', e);
+                dhVideo.controls = true;
+            });
+            setDHStatus('speaking', '🎙 数字人正在播报...', 100);
+            dhVideo.onended = () => {
+                setDHStatus('idle', '待命中', 0);
+                // 播完后恢复显示头像
+                dhVideo.style.display = 'none';
+                dhPlaceholder.style.display = 'block';
+            };
+        } else if (audioUrl) {
+            // 仅音频：保持头像显示 + 播放声音
+            dhPlaceholder.style.display = 'block';
+            dhVideo.style.display = 'none';
+            dhAudio.style.display = 'none';  // 隐藏audio元素，用JS控制
+            const audio = new Audio(audioUrl);
+            audio.play().catch(e => console.log('音频播放失败:', e));
+            setDHStatus('speaking', '🔊 正在播报(语音)...', 100);
+            audio.onended = () => setDHStatus('idle', '待命中', 0);
+        }
+    }
+
+    // ===== 发送消息（核心） =====
+    async function sendMessage() {
+        if (isProcessing) return;
+        const question = questionInput.value.trim();
+        if (!question) return;
+
+        if (welcomeBlock) welcomeBlock.style.display = 'none';
+
+        // 添加用户消息
+        addMessage('user', question);
+        questionInput.value = '';
+        questionInput.style.height = 'auto';
+
+        // 添加加载动画
+        const loadingId = addLoading();
+
+        isProcessing = true;
+        sendBtn.disabled = true;
+
+        // 如果数字人模式开启，更新状态
+        if (digitalHumanEnabled) {
+            setDHStatus('generating', '🤔 正在思考...', 10);
+        }
+
+        try {
+            // 第一步：NL2SQL 获取答案
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question: question })
+            });
+            const data = await response.json();
+            removeLoading(loadingId);
+
+            if (data.error) {
+                addMessage('ai', '⚠️ ' + data.error);
+                setDHStatus('idle', '待命中', 0);
+            } else {
+                // 显示文本答案
+                const msgEl = addMessage('ai', data.answer, data.elapsed);
+
+                // 第二步：数字人播报（如果开启）
+                if (digitalHumanEnabled && data.answer && data.answer.length > 3) {
+                    // 截断过长文本
+                    const broadcastText = data.answer.length > 500
+                        ? data.answer.substring(0, 500) + '。以上为主要信息。'
+                        : data.answer;
+
+                    setDHStatus('generating', '🎙 正在生成数字人播报...', 20);
+
+                    // 调用完整数字人播报（SadTalker唇形同步 + TTS）
+                    try {
+                        setDHStatus('generating', '🔊 正在合成语音...', 30);
+                        const dhResp = await fetch('/api/digital-human/broadcast', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                text: broadcastText,
+                                voice: currentVoice
+                            })
+                        });
+                        const dhData = await dhResp.json();
+
+                        if (dhData.success) {
+                            if (dhData.video_url) {
+                                setDHStatus('generating', '🎬 数字人视频就绪，即将播放...', 90);
+                                // 短暂延迟让用户看到状态
+                                setTimeout(() => {
+                                    playDigitalHuman(dhData.video_url, dhData.audio_url);
+                                }, 500);
+
+                                // 在消息气泡中加重新播放按钮
+                                if (msgEl) {
+                                    const replayBtn = document.createElement('button');
+                                    replayBtn.className = 'play-dh-btn';
+                                    replayBtn.innerHTML = '🎬 重新播报';
+                                    replayBtn.onclick = () => playDigitalHuman(dhData.video_url, dhData.audio_url);
+                                    msgEl.querySelector('.bubble').appendChild(replayBtn);
+                                }
+                            } else if (dhData.audio_url) {
+                                setDHStatus('speaking', '🔊 正在播报...', 80);
+                                playDigitalHuman(null, dhData.audio_url);
+
+                                if (msgEl) {
+                                    const playBtn = document.createElement('button');
+                                    playBtn.className = 'play-dh-btn';
+                                    playBtn.innerHTML = '🔊 语音播报';
+                                    playBtn.onclick = () => playDigitalHuman(null, dhData.audio_url);
+                                    msgEl.querySelector('.bubble').appendChild(playBtn);
+                                }
+                            }
+                        } else {
+                            console.error('播报失败:', dhData.error);
+                            setDHStatus('idle', '播报失败，请重试', 0);
+                        }
+                    } catch (dhErr) {
+                        console.error('数字人播报异常:', dhErr);
+                        setDHStatus('idle', '播报服务异常', 0);
+                    }
+                }
+            }
+        } catch (err) {
+            removeLoading(loadingId);
+            addMessage('ai', '⚠️ 网络连接失败，请检查服务是否正常运行');
+            setDHStatus('idle', '待命中', 0);
+        }
+
+        isProcessing = false;
+        sendBtn.disabled = false;
+        questionInput.focus();
+    }
+
+    // ===== 添加消息气泡 =====
+    function addMessage(role, content, elapsed) {
+        const div = document.createElement('div');
+        div.className = 'message ' + role;
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = role === 'user' ? '👤' : '🤖';
+
+        const body = document.createElement('div');
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.textContent = content;
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'time';
+        const now = new Date();
+        const timeStr = now.getHours().toString().padStart(2,'0') + ':' +
+                        now.getMinutes().toString().padStart(2,'0');
+        let label = timeStr;
+        if (elapsed !== undefined) label += ' · ' + elapsed + 's';
+        timeDiv.textContent = label;
+
+        body.appendChild(bubble);
+        body.appendChild(timeDiv);
+        div.appendChild(avatar);
+        div.appendChild(body);
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        return div;
+    }
+
+    // ===== 加载动画 =====
+    function addLoading() {
+        const div = document.createElement('div');
+        div.className = 'message ai';
+        div.id = 'loading-' + Date.now();
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = '🤖';
+
+        const body = document.createElement('div');
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+
+        body.appendChild(bubble);
+        div.appendChild(avatar);
+        div.appendChild(body);
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        return div.id;
+    }
+
+    function removeLoading(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    }
+
+    // ===== 语音输入（浏览器录音） =====
+    async function toggleVoiceInput() {
+        const voiceBtn = document.getElementById('voiceBtn');
+
+        if (isRecording) {
+            // 停止录音
+            mediaRecorder.stop();
+            voiceBtn.classList.remove('recording');
+            voiceBtn.textContent = '🎤';
+            isRecording = false;
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                // 发送到后端 ASR（如果可用）
+                // 此处简化：显示录音完成提示
+                voiceBtn.textContent = '🎤';
+                voiceBtn.classList.remove('recording');
+                isRecording = false;
+                console.log('录音完成，大小:', audioBlob.size);
+                // TODO: 发送到 /api/asr 进行语音识别
+            };
+
+            mediaRecorder.start();
+            voiceBtn.classList.add('recording');
+            voiceBtn.textContent = '⏹';
+            isRecording = true;
+        } catch (err) {
+            console.error('麦克风访问失败:', err);
+            alert('无法访问麦克风，请检查浏览器权限');
+        }
+    }
+
+    // ===== 初始化 =====
+    loadDHConfig();
+    questionInput.focus();
+</script>
+</body>
+</html>

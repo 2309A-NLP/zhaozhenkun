@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基金数字人 — 思维导图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f1119;color:#e0e0e0;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+.header{text-align:center;padding:28px 20px 10px;background:linear-gradient(135deg,#1a1d35,#0f1119)}
+.header h1{font-size:28px;background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{color:#888;margin-top:6px;font-size:14px}
+.container{display:flex;flex-wrap:wrap;gap:20px;padding:20px;max-width:1600px;margin:0 auto}
+.card{flex:1;min-width:480px;background:#1a1d35;border-radius:16px;padding:20px;border:1px solid #252845}
+.card h2{font-size:18px;margin-bottom:14px;color:#a5b4fc;text-align:center}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.footer{text-align:center;padding:10px;color:#555;font-size:12px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🧠 基金数字人 — 项目思维导图</h1>
+  <p>NL2SQL 基金问答 + 数字人播报系统 · 全景结构</p>
+</div>
+<div class="container">
+
+<div class="card">
+  <h2>📦 项目全景</h2>
+  <div class="mermaid">
+mindmap
+  root((基金数字人))
+    Web服务层
+      Flask 主应用
+      REST API 路由
+      HTML 前端界面
+      WebSocket 实时通信
+    NL2SQL 引擎
+      DeepSeek v4-pro
+      Prompt 构建器
+      SQL 生成与修正
+      数据库探索器
+    ::icon(fa fa-database)
+    数字人播报
+      SadTalker 引擎
+      Simple 降级模式
+      TTS 语音合成
+      ASR 语音识别
+    数据层
+      SQLite 数据库
+      10张金融数据表
+      PDF招股书文本
+      辅助视图预计算
+    部署运维
+      模型权重下载
+      日志追踪系统
+      配置文件管理
+      头像上传管理
+  </div>
+</div>
+
+<div class="card">
+  <h2>🔗 核心管线流程</h2>
+  <div class="mermaid">
+graph LR
+    U["👤 用户提问"]
+    F["🌐 Flask /api/chat"]
+    SAN["🔧 sanitize_question<br/>清洗输入"]
+    PS["📋 process_question<br/>NL2SQL核心"]
+    GS["🤖 generate_sql<br/>DeepSeek API"]
+    EX["⚡ execute_sql<br/>SQLite查询"]
+    FMT["📊 format_sql_result<br/>格式化答案"]
+    DH["🎬 /api/digital-human/broadcast"]
+    TTS["🔊 Edge-TTS<br/>文本转语音"]
+    ST["🎭 SadTalker<br/>数字人视频"]
+    OUT["📹 输出MP4视频"]
+
+    U --> F --> SAN --> PS
+    PS --> GS --> EX --> FMT
+    PS -.->|NEED_PDF| PDF["📄 PDF检索"]
+    FMT --> DH --> TTS --> ST --> OUT
+    FMT --> R["✅ JSON响应"]
+  </div>
+</div>
+
+<div class="card">
+  <h2>🗄️ 数据库10张表</h2>
+  <div class="mermaid">
+mindmap
+  root((SQLite DB))
+    基金基本信息
+    基金日行情表
+    基金规模变动表
+    基金份额持有人结构
+    基金股票持仓明细
+    基金债券持仓明细
+    基金可转债持仓明细
+    A股票日行情表
+    港股票日行情表
+    A股公司行业划分表
+    辅助视图
+      stock_daily_change
+      hk_stock_daily_change
+      stock_limit_up
+  </div>
+</div>
+
+<div class="card">
+  <h2>🎭 数字人引擎矩阵</h2>
+  <div class="mermaid">
+graph TB
+    DH["DigitalHumanPipeline<br/>数字人播报流水线"]
+    TTS{"TTS引擎选择"}
+    TH{"Talking Head选择"}
+    ASR{"ASR引擎选择"}
+
+    DH --> TTS
+    DH --> TH
+    DH --> ASR
+
+    TTS --> Edge["Edge-TTS<br/>微软免费·中文优质"]
+    TTS --> Paddle["PaddleTTS<br/>百度开源·离线可用"]
+
+    TH --> SadTalker["SadTalker<br/>3D运动系数·唇形同步"]
+    TH --> Simple["Simple<br/>FFmpeg静态合成·备选"]
+
+    ASR --> FunASR["FunASR<br/>阿里达摩院·中文最优"]
+    ASR --> Whisper["Whisper<br/>OpenAI·多语言"]
+  </div>
+</div>
+
+<div class="card">
+  <h2>🔧 NL2SQL Prompt 工程</h2>
+  <div class="mermaid">
+graph TD
+    SP["build_system_prompt()"]
+    UP["build_user_prompt()"]
+    BM["build_messages()"]
+
+    SP --> Schema["📋 Schema描述<br/>10张表+字段+类型"]
+    SP --> Relations["🔗 表关系<br/>JOIN条件"]
+    SP --> Rules["📏 SQL规范<br/>双引号·日期·NULL"]
+    SP --> Views["👁️ 辅助视图<br/>预计算涨跌幅/涨停"]
+    SP --> FewShot["📝 Few-Shot<br/>7个示例SQL"]
+
+    UP --> Question["❓ 用户自然语言问题"]
+
+    BM --> System["System Message"]
+    BM --> User["User Message"]
+    System & User --> API["DeepSeek API"]
+  </div>
+</div>
+
+<div class="card">
+  <h2>📁 项目目录结构</h2>
+  <div class="mermaid">
+graph TD
+    ROOT["📁 基金数字人/"]
+    ROOT --> 研发["📁 研发/ (核心代码)"]
+    ROOT --> 部署["📁 部署/ (前端+部署)"]
+    ROOT --> 测试["📁 测试/ (测试用例)"]
+    ROOT --> 设计["📁 设计/ (设计文档)"]
+    ROOT --> 优化["📁 优化/ (优化记录)"]
+    ROOT --> output["📁 output/ (生成的视频/音频)"]
+    ROOT --> uploads["📁 uploads/ (上传的头像)"]
+    ROOT --> logs["📁 logs/ (运行日志)"]
+    ROOT --> models["📁 SadTalker_models/"]
+
+    研发 --> main["main.py · Flask主程序"]
+    研发 --> dh["digital_human.py · 播报流水线"]
+    研发 --> tts["tts_engine.py · TTS合成"]
+    研发 --> asr["asr_engine.py · 语音识别"]
+    研发 --> talking["talking_head.py · 数字人引擎"]
+    研发 --> deepseek["deepseek_client.py · API客户端"]
+    研发 --> prompt["prompt_builder.py · Prompt构建"]
+    研发 --> db["db_explorer.py · 数据库探索"]
+    研发 --> config["config.py · 配置管理"]
+
+    部署 --> html["templates/index.html"]
+    部署 --> deploy_md["部署说明.md"]
+  </div>
+</div>
+
+</div>
+<div class="footer">基金数字人 · NL2SQL 智能问答 + 数字人播报系统 · 思维导图</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#6366f1',
+    primaryTextColor: '#e0e0e0',
+    primaryBorderColor: '#8b5cf6',
+    lineColor: '#6366f1',
+    secondaryColor: '#1a1d35',
+    tertiaryColor: '#12152a',
+  },
+  mindmap: { useMaxWidth: true }
+});
+</script>
+</body>
+</html>

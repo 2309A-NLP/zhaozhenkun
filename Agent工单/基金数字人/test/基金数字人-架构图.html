@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>基金数字人 — 系统架构图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0d17;color:#e0e0e0;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+.header{text-align:center;padding:28px 20px 10px;background:linear-gradient(135deg,#1a1d35,#0b0d17)}
+.header h1{font-size:28px;background:linear-gradient(90deg,#f59e0b,#ef4444,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{color:#888;margin-top:6px;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-width:1700px;margin:0 auto}
+.card{background:#1a1d35;border-radius:16px;padding:20px;border:1px solid #252845}
+.card.full{grid-column:1/-1}
+.card h2{font-size:17px;margin-bottom:14px;text-align:center}
+.c1{color:#f59e0b}.c2{color:#10b981}.c3{color:#6366f1}.c4{color:#ec4899}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.footer{text-align:center;padding:10px;color:#555;font-size:12px}
+</style></head><body>
+<div class="header"><h1>基金数字人 — 系统架构图</h1><p>Flask NL2SQL 基金问答 + SadTalker 数字人播报 · 全栈架构</p></div>
+<div class="grid">
+
+<div class="card full"><h2 class="c1">全栈架构总览</h2><div class="mermaid">
+graph TB
+    subgraph B["用户浏览器"]
+        UI["index.html 基金问答界面"]
+        VP["video 数字人播报"]
+    end
+    subgraph F["Flask Web层"]
+        R["路由分发器"]
+        C["POST /api/chat NL2SQL问答"]
+        D["POST /api/digital-human/broadcast 数字人播报"]
+        T["POST /api/digital-human/tts-only 仅TTS"]
+        CF["GET/POST /api/digital-human/config"]
+    end
+    subgraph N["NL2SQL引擎"]
+        SN["sanitize_question() 输入清洗"]
+        PB["build_system_prompt() Prompt构建"]
+        DS["DeepSeek v4-pro API"]
+        EX["extract_sql_from_response() SQL提取"]
+        FIX["SQL自动修正 最多3次"]
+    end
+    subgraph DB["数据层"]
+        SQL[("SQLite DB 1.46GB·10表")]
+        VW["辅助视图 stock_daily_change"]
+        PDF["PDF招股书 80个TXT"]
+    end
+    subgraph DH["数字人引擎"]
+        TTS["Edge-TTS 文本→MP3"]
+        ST["SadTalker 照片+音频→唇形视频"]
+        SMP["Simple模式 FFmpeg静态合成"]
+        CV["H.264转码"]
+    end
+    subgraph O["输出"]
+        MP4["MP4视频"]
+        MP3["MP3音频"]
+        JSON["JSON响应"]
+    end
+    UI-->C-->SN-->PB-->DS-->EX-->SQL
+    EX-.->|SQL错误|FIX-.->DS
+    EX-.->|NEED_PDF|PDF
+    SQL-->VW
+    D-->TTS-->MP3-->ST-->CV-->MP4
+    ST-.->|不可用|SMP-->MP4
+    C-->JSON
+    D-->JSON
+</div></div>
+
+<div class="card full"><h2 class="c2">NL2SQL 问答时序图</h2><div class="mermaid">
+sequenceDiagram
+    participant U as 用户
+    participant F as Flask /api/chat
+    participant P as process_question
+    participant D as DeepSeek API
+    participant S as SQLite
+    participant PDF as PDF TXT
+    U->>F: POST question
+    F->>P: sanitize_question()
+    P->>D: generate_sql()
+    D-->>P: SQL语句
+    P->>S: execute_sql()
+    S-->>P: 查询结果
+    alt SQL失败
+        P->>D: 自动修正(最多2次)
+        D-->>P: 修正SQL
+        P->>S: 重新执行
+    else NEED_PDF
+        P->>PDF: search_pdf_texts()
+        PDF-->>P: 文本段落
+        P->>D: RAG问答
+        D-->>P: 答案
+    end
+    P->>F: format_sql_result()
+    F-->>U: answer + elapsed
+</div></div>
+
+<div class="card full"><h2 class="c3">数字人播报时序图</h2><div class="mermaid">
+sequenceDiagram
+    participant U as 前端
+    participant F as Flask broadcast
+    participant P as DigitalHumanPipeline
+    participant TTS as Edge-TTS
+    participant ST as SadTalker
+    participant FF as FFmpeg
+    U->>F: POST text
+    F->>P: broadcast(text)
+    P->>TTS: synthesize(text)
+    TTS-->>P: output.mp3
+    alt SadTalker就绪
+        P->>ST: generate(photo,audio)
+        ST->>ST: 3DMM运动系数
+        ST->>ST: 人脸渲染+唇形同步
+        ST-->>P: 原始视频
+        P->>FF: H.264转码
+        FF-->>P: H.264+AAC MP4
+    else 不可用
+        P->>FF: Simple静态合成
+        FF-->>P: output.mp4
+    end
+    P-->>F: video_url
+    F-->>U: success + video_url
+</div></div>
+
+<div class="card"><h2 class="c1">数据流全景</h2><div class="mermaid">
+graph LR
+    Q["自然语言问题"]-->NL2SQL["NL2SQL引擎"]
+    NL2SQL-->SQLDB[("SQLite DB")]
+    NL2SQL-->PDF2["招股书 TXT"]
+    NL2SQL-->Answer["答案文本"]
+    Answer-->TTS2["Edge-TTS"]
+    AV["数字人头像"]-->TH["SadTalker"]
+    TTS2-->TH
+    TTS2-->Audio["语音播放"]
+    TH-->Video["数字人视频"]
+    Audio-->Output["output/ 目录"]
+    Video-->Output
+    Output-->Browser["浏览器展示"]
+</div></div>
+
+<div class="card"><h2 class="c4">部署架构</h2><div class="mermaid">
+graph TB
+    subgraph Server["服务器"]
+        Py["Python 3.10+"]
+        Fl["Flask :5000"]
+        FF2["FFmpeg"]
+        CUDA["CUDA GPU(可选)"]
+    end
+    subgraph Cloud["外部服务"]
+        DSAPI["DeepSeek API"]
+        ETTS["Microsoft Edge TTS 免费"]
+    end
+    subgraph Local["本地资源"]
+        DBFile[("博金杯比赛数据.db")]
+        STModel["SadTalker模型 ~500MB"]
+        Avatar["avatar.jpg"]
+    end
+    Fl-->Py
+    Fl-->FF2
+    Fl-->|HTTPS|DSAPI
+    Fl-->|edge-tts库|ETTS
+    Fl-->DBFile
+    Fl-->STModel
+    User["浏览器"]-->|http://127.0.0.1:5000|Fl
+</div></div>
+
+<div class="card"><h2 class="c3">API路由表</h2><div class="mermaid">
+graph LR
+    R1["GET / 首页"] & R2["POST /api/chat NL2SQL问答"] & R3["GET /api/health 健康检查"] & R4["POST broadcast 数字人播报"] & R5["POST tts-only 仅TTS"] & R6["GET config 获取配置"] & R7["POST config 更新配置"] & R8["POST upload-avatar 上传头像"] & R9["GET /output/ 输出文件"] & R10["GET /uploads/ 上传文件"]
+</div></div>
+
+<div class="card"><h2 class="c2">技术栈</h2><div class="mermaid">
+graph TB
+    subgraph P["Python生态"]
+        A["Flask Web框架"]
+        B["requests HTTP客户端"]
+        C["sqlite3 数据库驱动"]
+        D["edge-tts 微软TTS"]
+        E["funasr 阿里ASR"]
+        F["openai-whisper"]
+        G["SadTalker 数字人"]
+        H["ffmpeg 视频处理"]
+        I["pandas 数据处理"]
+    end
+    subgraph M["AI模型"]
+        J["DeepSeek v4-pro NL2SQL"]
+        K["SadTalker 256/512"]
+        L["Paraformer-zh ASR"]
+        N["Edge Neural 6发音人"]
+    end
+    subgraph I2["基础设施"]
+        O["SQLite 嵌入式DB"]
+        Q2["FFmpeg 编解码"]
+        R2["H.264/AAC 浏览器兼容"]
+    end
+</div></div>
+
+</div>
+<div class="footer">基金数字人 · NL2SQL 智能问答 + 数字人播报系统 · 架构图</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#1a1d35',primaryTextColor:'#e0e0e0',primaryBorderColor:'#6366f1',lineColor:'#6366f1',secondaryColor:'#12152a',tertiaryColor:'#0f1119'},sequence:{useMaxWidth:true},flowchart:{useMaxWidth:true,htmlLabels:true}});</script>
+</body></html>
