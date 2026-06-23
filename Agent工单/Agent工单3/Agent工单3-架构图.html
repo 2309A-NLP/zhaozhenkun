@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Agent工单3 · 文生图智能体 — 架构图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans SC',sans-serif;background:linear-gradient(170deg,#0d0d0d,#1a1005,#051510);color:#ccc;min-height:100vh}
+.hero{text-align:center;padding:34px 20px 14px;position:relative}
+.hero::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:180px;height:2px;background:linear-gradient(90deg,transparent,#ff8c00,#00c896,transparent)}
+.hero h1{font-size:34px;font-weight:900;background:linear-gradient(135deg,#ff8c00,#e040fb,#00c896);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:#666;font-size:13px;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(550px,1fr));gap:18px;padding:20px;max-width:1800px;margin:0 auto}
+.card{background:rgba(18,15,10,.7);backdrop-filter:blur(10px);border-radius:14px;padding:18px;border:1px solid rgba(255,140,0,.06)}
+.card:hover{border-color:rgba(255,140,0,.15)}
+.card.full{grid-column:1/-1}
+.card h2{font-size:16px;font-weight:700;margin-bottom:12px;text-align:center;letter-spacing:.3px}
+.t1{color:#ff8c00}.t2{color:#e040fb}.t3{color:#00c896}.t4{color:#4da6ff}.t5{color:#ff5252}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.foot{text-align:center;padding:12px;color:#444;font-size:11px;border-top:1px solid rgba(255,255,255,.03);margin-top:8px}
+</style></head><body>
+<div class="hero"><h1> 文生图智能体 · 系统架构</h1><p>人脸旋转 + 图像扩图 · 三条生成路径 · 七层架构 · Monkeypatch 扩展模式</p></div>
+<div class="grid">
+
+<div class="card full"><h2 class="t1"> 七层全栈架构</h2><div class="mermaid">
+graph TB
+    subgraph L1[" 入口层 PRESENTATION"]
+        CLI["main.py · CLI管线"]
+        GRADIO["app.py · Gradio Web UI 5 Tab"]
+        QCLI["qwen_cli.py · Qwen CLI"]
+    end
+    subgraph L2[" 编排层 ORCHESTRATION"]
+        SCR["StrongControlRouter 路由决策"]
+        CB["callbacks.py · Gradio 回调"]
+        CBQ["callbacks_qwen.py · Qwen 回调"]
+    end
+    subgraph L3[" 核心层 CORE"]
+        FP["FaceProcessor<br/>MediaPipe 检测·468关键点·姿态"]
+        IG["ImageGenerator<br/>WebUI API / ControlNet 双模"]
+        OP2["ImageOutpainter<br/>画布扩展·羽化遮罩·SD Inpainting"]
+        CG["ControlNetGenerator<br/>SD1.5 + OpenPose + IP-Adapter"]
+    end
+    subgraph L4[" 扩展层 EXTENSIONS (Monkeypatch)"]
+        FU2["face_utils.py → FaceProcessor"]
+        FA2["face_analysis.py → FaceProcessor"]
+        IW2["image_gen_webui.py → ImageGenerator"]
+        OU2["outpaint_utils.py → ImageOutpainter"]
+        CU2["controlnet_utils.py → ControlNetGenerator"]
+        CW2["comfyui_workflow.py → ComfyUIClient"]
+        CH2["comfyui_helpers.py → ComfyUIClient"]
+        CP2["comfyui_pose.py → ComfyUIClient"]
+    end
+    subgraph L5[" API客户端层 CLIENTS"]
+        CC2["ComfyUIClient · REST API"]
+        QE2["QwenImageEditor · DashScope"]
+    end
+    subgraph L6[" 基础设施层 INFRA"]
+        ES["EmbeddingService · BGE-M3"]
+        VS["VectorStore · Milvus"]
+        CM["CacheManager · Redis"]
+    end
+    subgraph L7[" 配置层 CONFIG"]
+        CFG["config.py · 10 @dataclass"]
+        PROMPTS["prompts.py · 模板"]
+        WF["instantid_workflow_api.json"]
+    end
+    L1-->L2-->L3
+    L4-.->|"运行时注入"|L3
+    L2-->L5
+    L3-->L5
+    L5-->|"HTTP"|SD["SD WebUI :7861"]
+    L5-->|"HTTP"|CFUI["ComfyUI :8188"]
+    L5-->|"HTTPS"|DS2["DashScope API"]
+    L7-->L2
+    L3-.->|"可选"|L6
+</div></div>
+
+<div class="card full"><h2 class="t2"> 强控路径 · 完整时序</h2><div class="mermaid">
+sequenceDiagram
+    participant U as 👤 用户
+    participant M as main.py
+    participant FP as FaceProcessor
+    participant SR as StrongControlRouter
+    participant CC as ComfyUIClient
+    participant CF as ComfyUI Server
+
+    U->>M: python main.py --image photo.jpg
+    M->>FP: detect_face() → bbox
+    M->>FP: estimate_pose() → yaw/pitch/roll
+
+    M->>SR: generate_all_rotations(image, processor)
+    SR->>SR: _is_workflow_ready() ✅
+    SR->>SR: 加载 instantid_workflow_api.json
+
+    SR->>CC: upload_image(source_face) → ComfyUI input/
+    SR->>CC: _make_face_skeleton() ×3 生成三视角骨架
+    SR->>CC: upload_image(skeleton) ×3
+
+    loop 左/右/正 三视角
+        SR->>CC: deepcopy workflow
+        CC->>CC: set_positive_prompt() 方向描述
+        CC->>CC: set_negative_prompt()
+        CC->>CC: set_seed() 随机种子
+        SR->>CC: queue_prompt(workflow) → prompt_id
+        CC->>CF: POST /prompt
+        CC->>CF: 轮询 GET /history/{prompt_id}
+        CF-->>CC: outputs: {images: [{filename}]}
+        CC->>CF: GET /view?filename=...
+        CF-->>CC: PNG image bytes
+        CC->>M: 保存到 output/
+    end
+
+    SR-->>M: {images: {left, right, front: path}}
+    M->>FP: validate_face() ×3 质量检查
+    M->>M: ImageOutpainter.outpaint() ×3 扩图
+    M->>M: create_comparison_grid() 对比图
+    M-->>U: 6张图 + 对比网格
+</div></div>
+
+<div class="card full"><h2 class="t3"> Qwen 千问路径 · 时序</h2><div class="mermaid">
+sequenceDiagram
+    participant U as 👤 Gradio UI
+    participant CB as callbacks.py
+    participant QE as QwenImageEditor
+    participant DS as DashScope API
+
+    U->>CB: 上传照片 + 点击"生成旋转"
+    CB->>CB: _init_face() 检测人脸+姿态
+
+    par 三路并行
+        CB->>QE: edit(images, "向左转头30度")
+        QE->>DS: MultiModalConversation.call()
+        DS-->>QE: output image URL
+    and
+        CB->>QE: edit(images, "向右转头30度")
+        QE->>DS: MultiModalConversation.call()
+        DS-->>QE: output image URL
+    and
+        CB->>QE: edit(images, "正脸朝前")
+        QE->>DS: MultiModalConversation.call()
+        DS-->>QE: output image URL
+    end
+
+    QE-->>CB: 三张旋转人脸 PNG
+
+    par 三路并行扩图
+        CB->>QE: edit(rot_left, "扩展画布1.5倍")
+        CB->>QE: edit(rot_right, "扩展画布1.5倍")
+        CB->>QE: edit(rot_front, "扩展画布1.5倍")
+    end
+
+    QE-->>CB: 三张扩图 PNG
+    CB-->>U: 6张图展示
+</div></div>
+
+<div class="card"><h2 class="t4"> 数据流全景</h2><div class="mermaid">
+graph LR
+    subgraph I[" 输入"]
+        PHOTO["人脸照片"]
+        PROMPT["方向提示词"]
+    end
+    subgraph DETECT[" 检测"]
+        BBOX["边界框 bbox"]
+        LMK["468 3D关键点"]
+        POSE["yaw/pitch/roll"]
+    end
+    subgraph GEN[" 生成 (三选一)"]
+        SC["ComfyUI<br/>IP-Adapter"]
+        QW["Qwen API<br/>DashScope"]
+        FB["SD WebUI<br/>img2img"]
+    end
+    subgraph VAL[" 验证"]
+        VF["validate_face"]
+        VI["validate_identity"]
+        VP2["validate_pose"]
+    end
+    subgraph EX[" 扩图"]
+        OP3["create_outpaint_canvas<br/>+ feather mask"]
+        INP["SD Inpainting"]
+    end
+    subgraph O2[" 输出"]
+        ROT3["旋转图×3"]
+        OUT3["扩图×3"]
+        GRID["对比网格"]
+    end
+    PHOTO-->BBOX-->LMK-->POSE-->GEN
+    PROMPT-->GEN
+    GEN-->VAL-->EX-->O2
+    EX-->ROT3
+</div></div>
+
+<div class="card"><h2 class="t5"> Monkeypatch 扩展注入机制</h2><div class="mermaid">
+graph TB
+    subgraph Core["核心类 (定义基础方法)"]
+        A1["FaceProcessor<br/>detect_face/extract_landmarks/estimate_pose"]
+        A2["ImageGenerator<br/>generate_rotated_face"]
+        A3["ImageOutpainter<br/>create_outpaint_canvas/outpaint"]
+        A4["ControlNetGenerator<br/>_load_pipeline/generate_rotated_face"]
+        A5["ComfyUIClient<br/>check_health/queue_prompt/download_outputs"]
+    end
+    subgraph Ext["扩展模块 (import时注入)"]
+        B1["face_utils.py<br/>→ prepare_rotation_image<br/>→ validate_face<br/>→ _get_landmarks_3d"]
+        B2["face_analysis.py<br/>→ validate_identity<br/>→ validate_pose"]
+        B3["image_gen_webui.py<br/>→ _call_img2img<br/>→ _call_inpaint"]
+        B4["outpaint_utils.py<br/>→ outpaint_progressive<br/>→ validate_outpaint"]
+        B5["controlnet_utils.py<br/>→ generate_all_rotations<br/>→ outpaint"]
+        B6["comfyui_workflow.py<br/>→ execute_workflow_with_faces"]
+        B7["comfyui_helpers.py<br/>→ set_positive_prompt<br/>→ find_nodes_by_type"]
+        B8["comfyui_pose.py<br/>→ _make_face_skeleton<br/>→ _build_pose_refs"]
+    end
+    B1-.->|"FaceProcessor.method = fn"|A1
+    B2-.->|"FaceProcessor.method = fn"|A1
+    B3-.->|"ImageGenerator.method = fn"|A2
+    B4-.->|"ImageOutpainter.method = fn"|A3
+    B5-.->|"ControlNetGenerator.method = fn"|A4
+    B6 & B7 & B8-.->|"ComfyUIClient.method = fn"|A5
+</div></div>
+
+<div class="card"><h2 class="t1"> Gradio Web UI · 5个标签页</h2><div class="mermaid">
+graph LR
+    T1["Tab1 面部旋转+扩图<br/>上传照片→检测→3旋转→3扩图"]
+    T2["Tab2 单独扩图<br/>上传照片→1.5倍画布扩展"]
+    T3["Tab3 千问AI编辑<br/>1-3张图+自由Prompt"]
+    T4["Tab4 系统状态<br/>SD·Torch·MediaPipe·Qwen检测"]
+    T5["Tab5 使用说明<br/>帮助文档"]
+</div></div>
+
+<div class="card"><h2 class="t2"> 部署架构</h2><div class="mermaid">
+graph TB
+    subgraph Local[" 本地服务器"]
+        PY["Python 3.10+"]
+        GRADIO2["Gradio Web UI 或 CLI"]
+        SD2["SD WebUI :7861<br/>img2img + ControlNet"]
+        CF2["ComfyUI :8188<br/>IP-Adapter + OpenPose"]
+    end
+    subgraph Cloud[" 云服务"]
+        DS3["DashScope 阿里云<br/>qwen-image-edit-max"]
+    end
+    subgraph Opt[" 可选组件"]
+        MILVUS["Milvus 向量库"]
+        REDIS["Redis 缓存"]
+        BGEM3["BGE-M3 文本嵌入"]
+    end
+    PY-->GRADIO2
+    GRADIO2-->|"HTTP"|SD2
+    GRADIO2-->|"HTTP"|CF2
+    GRADIO2-->|"HTTPS"|DS3
+    GRADIO2-.->|"可选"|MILVUS
+    GRADIO2-.->|"可选"|REDIS
+    USER["👤 浏览器"]-->|"Gradio"|GRADIO2
+</div></div>
+
+</div>
+<div class="foot">Agent工单3 · 文生图智能体 · 26个Py文件 · 七层架构 · Monkeypatch扩展 · 三条生成路径</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#1a1005',primaryTextColor:'#ccc',primaryBorderColor:'#ff8c00',lineColor:'#00c896',secondaryColor:'#0d0d0d',tertiaryColor:'#051510'},flowchart:{useMaxWidth:true,htmlLabels:true},sequence:{useMaxWidth:true,boxMargin:12}});</script>
+</body></html>

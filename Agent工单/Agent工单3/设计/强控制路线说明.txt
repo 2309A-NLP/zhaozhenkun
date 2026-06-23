@@ -1,0 +1,27 @@
+强控制路线说明
+
+1. 当前项目正式统一入口：main.py 和 app.py
+2. 兼容旧入口：face_rotate_controlnet.py / face_rotate_cn.py 会自动转调 main.py
+3. 默认优先读取：设计/instantid_workflow_api.json
+4. 强控制输入目录：研发/strong_input/
+5. 强控制输出目录：研发/strong_output/
+6. ComfyUI API 地址默认： http://127.0.0.1:8188
+
+推荐工作流要求
+- 身份锁定：必须使用 InstantID 或 IP-Adapter Face，不能只靠 prompt
+- 姿态控制：必须显式区分 left / right / front
+- 输出数量：先稳定生成 3 张旋转图，再接扩图
+- 分辨率：先 512x512 跑通，再考虑升到 768x768
+- 当前稳妥参数：InstantID weight=0.95、end_at=0.85、KSampler denoise=0.72、steps=28、cfg=6.8
+
+现在代码行为
+- main.py / app.py 默认优先走强控制路线
+- 检测到工作流 JSON 可用后，会自动上传 source_face 与 pose_ref 到 ComfyUI
+- 会自动为 left / right / front 三种姿态分别提交工作流
+- 成功后自动下载结果，并继续走项目里的扩图流程
+- 如果强控制不可用且 allow_fallback=False，则直接报错，不再悄悄走弱控制假装达标
+
+为什么这样改
+- 把所有入口统一到同一套强控制主链路
+- 避免旧脚本各自维护一套 prompt / ControlNet 逻辑，越改越乱
+- 后续你只需要维护一个 ComfyUI 工作流 JSON，不需要多处同步修改

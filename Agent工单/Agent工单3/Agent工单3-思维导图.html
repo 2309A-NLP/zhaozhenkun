@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Agent工单3 · 文生图智能体 — 思维导图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans SC',sans-serif;background:linear-gradient(150deg,#0a0a0a,#1a1a0a,#0a0f0a);color:#d4d4d4;min-height:100vh}
+.hero{text-align:center;padding:36px 20px 16px;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 40% 50%,rgba(255,140,0,.08),transparent 60%),radial-gradient(ellipse at 60% 50%,rgba(0,200,150,.06),transparent 60%)}
+.hero h1{font-size:38px;font-weight:900;background:linear-gradient(135deg,#ff8c00,#ff6b35,#00c896);-webkit-background-clip:text;-webkit-text-fill-color:transparent;position:relative;z-index:1}
+.hero p{color:#777;font-size:14px;margin-top:6px;position:relative;z-index:1}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(500px,1fr));gap:20px;padding:20px 28px 28px;max-width:1800px;margin:0 auto}
+.card{background:rgba(20,20,15,.7);backdrop-filter:blur(12px);border-radius:16px;padding:20px;border:1px solid rgba(255,140,0,.08);transition:.3s}
+.card:hover{border-color:rgba(255,140,0,.2);box-shadow:0 6px 32px rgba(255,140,0,.06)}
+.card.full{grid-column:1/-1}
+.card h2{font-size:18px;font-weight:700;margin-bottom:14px;text-align:center;letter-spacing:.5px}
+.t1{color:#ff8c00}.t2{color:#ff6b35}.t3{color:#00c896}.t4{color:#4da6ff}.t5{color:#e040fb}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.foot{text-align:center;padding:14px;color:#444;font-size:12px;border-top:1px solid rgba(255,255,255,.03)}
+</style></head><body>
+<div class="hero"><h1>🎨 文生图 AI 智能体</h1><p>人脸旋转 · 图像扩图 · 身份保持 · 三条生成路径</p></div>
+<div class="grid">
+
+<div class="card"><h2 class="t1">🧩 项目全景结构</h2><div class="mermaid">
+mindmap
+  root((文生图 Agent))
+    入口层
+      main.py CLI 管线
+      app.py Gradio Web UI
+      qwen_cli.py Qwen CLI
+    核心处理
+      FaceProcessor 人脸检测
+      ImageGenerator 图像生成
+      ImageOutpainter 图像扩图
+      ControlNetGenerator 本地推理
+    ::icon(fa fa-cogs)
+    强控路由
+      StrongControlRouter 策略选择
+      ComfyUIClient API客户端
+      IP-Adapter 身份锁定
+      ControlNet OpenPose 姿态
+    Qwen 云API
+      QwenImageEditor 千问编辑
+      DashScope 阿里云服务
+      人脸旋转 + 扩图 + 自由编辑
+    基础设施
+      EmbeddingService BGE-M3
+      VectorStore Milvus向量库
+      CacheManager Redis缓存
+    配置中心
+      config.py 10个配置类
+      prompts.py 提示词模板
+      instantid_workflow_api.json
+</div></div>
+
+<div class="card"><h2 class="t2">🔄 三条生成路径</h2><div class="mermaid">
+graph TB
+    INPUT["📷 用户上传人脸照片"]
+    DETECT["FaceProcessor<br/>检测+468关键点+姿态"]
+    ROUTER["StrongControlRouter<br/>路由决策"]
+    ROUTER-->|"强控路径 ✅"|COMFY["ComfyUI + IP-Adapter<br/>身份指纹锁定<br/>ControlNet OpenPose 姿态驱动<br/>三视角一次生成"]
+    ROUTER-->|"Cloud"|QWEN["Qwen-Image-Edit-Max<br/>千问云端大模型<br/>Prompt引导旋转<br/>Gradio Web UI默认"]
+    ROUTER-->|"回退路径 ⚠️"|FALL["SD WebUI / ControlNet 本地<br/>img2img + depth<br/>低身份保持度"]
+    COMFY-->OUT["left / right / front<br/>三张旋转人脸"]
+    QWEN-->OUT
+    FALL-->OUT
+    OUT-->OUTPAINT["ImageOutpainter 扩图<br/>画布扩展+羽化遮罩<br/>SD Inpainting填充"]
+    OUTPAINT-->FINAL["6张图: 旋转3张+扩图3张<br/>+ 对比网格图"]
+</div></div>
+
+<div class="card"><h2 class="t3">🎭 人脸处理管线</h2><div class="mermaid">
+graph LR
+    IMG["输入图像"]
+    FD["detect_face()<br/>MediaPipe检测<br/>bbox x,y,w,h"]
+    LM["extract_landmarks()<br/>468点3D关键点"]
+    POSE["estimate_pose()<br/>PnP姿态解算<br/>yaw/pitch/roll"]
+    PREP["prepare_rotation_image()<br/>3D人脸扭曲+深度图"]
+    ROT["generate_rotated_face()<br/>SD生成旋转视角"]
+    VALID["validate_face()<br/>人脸存在+置信度"]
+    ID["validate_identity()<br/>Procrustes+直方图<br/>身份相似度验证"]
+    POSE_V["validate_pose()<br/>姿态方向验证"]
+
+    IMG-->FD-->LM-->POSE-->PREP-->ROT-->VALID-->ID-->POSE_V
+</div></div>
+
+<div class="card"><h2 class="t4">📁 项目目录结构</h2><div class="mermaid">
+graph TD
+    R["📁 Agent工单3/"]
+    R-->M["main.py CLI入口"]
+    R-->A["app.py Gradio UI"]
+    R-->C["config.py 配置中心"]
+    R-->P["prompts.py 提示词"]
+    R-->DEV["📁 研发/ 26个py文件"]
+    R-->DEP["📁 部署/ 配置+模型"]
+    R-->TST["📁 测试/"]
+    R-->DSN["📁 设计/ 文档+工作流"]
+
+    DEV-->FP["face_processor.py 人脸检测"]
+    DEV-->FU["face_utils.py 旋转+验证"]
+    DEV-->FA["face_analysis.py 身份+姿态"]
+    DEV-->IG["image_generator.py 图像生成"]
+    DEV-->IW["image_gen_webui.py WebUI调用"]
+    DEV-->OP["outpainter.py 扩图核心"]
+    DEV-->OU["outpaint_utils.py 渐进扩图"]
+    DEV-->CG["controlnet_generator.py 本地推理"]
+    DEV-->CU["controlnet_utils.py 批量旋转"]
+    DEV-->SCR["strong_control_router.py 强控路由"]
+    DEV-->CC["comfyui_client.py ComfyUI客户端"]
+    DEV-->CW["comfyui_workflow.py 三视角工作流"]
+    DEV-->CH["comfyui_helpers.py 工作流修改"]
+    DEV-->CP["comfyui_pose.py 骨架+姿态"]
+    DEV-->QE["qwen_image_editor.py 千问编辑器"]
+    DEV-->QU["qwen_utils.py 图像转换"]
+    DEV-->QC["qwen_cli.py 千问CLI"]
+    DEV-->CB["callbacks.py Gradio回调"]
+    DEV-->CQ["callbacks_qwen.py Qwen回调"]
+    DEV-->ES["embedding_service.py BGE-M3"]
+    DEV-->VS["vector_store.py Milvus"]
+    DEV-->CM["cache_manager.py Redis"]
+    DEV-->UT["utils.py 通用工具"]
+</div></div>
+
+<div class="card"><h2 class="t5">🎛️ ComfyUI 强控工作流</h2><div class="mermaid">
+graph TB
+    subgraph WF["instantid_workflow_api.json · 13节点"]
+        A["CheckpointLoader<br/>SD 1.5 基础模型"]
+        B["LoadImage x2<br/>源人脸 + 姿态骨架"]
+        C["IPAdapterUnifiedLoader<br/>IP-Adapter-Face 身份编码"]
+        D["IPAdapterAdvanced<br/>身份特征注入"]
+        E["ControlNetLoader<br/>OpenPose 姿态控制"]
+        F["CLIPTextEncode x2<br/>正/负向提示词"]
+        G["ControlNetApplyAdvanced<br/>姿态条件注入"]
+        H["VAEEncode<br/>潜空间编码"]
+        I["KSampler<br/>30步采样·CFG 7.5"]
+        J["VAEDecode<br/>潜空间解码"]
+        K["SaveImage<br/>输出旋转人脸"]
+    end
+    A-->F
+    B-->C-->D-->I
+    E-->G-->I
+    H-->I-->J-->K
+</div></div>
+
+<div class="card"><h2 class="t1">☁️ Qwen 千问 API 流程</h2><div class="mermaid">
+graph LR
+    U["📷 上传照片"]-->QE2["QwenImageEditor.edit()"]
+    QE2-->|"prompt: 向左转头30度"|DS["DashScope API<br/>qwen-image-edit-max"]
+    DS-->DL["下载编辑结果"]
+    DL-->R1["left.png"]
+    QE2-->|"prompt: 向右转头30度"|DS2["DashScope API"]
+    DS2-->R2["right.png"]
+    QE2-->|"prompt: 正脸朝前"|DS3["DashScope API"]
+    DS3-->R3["front.png"]
+    R1 & R2 & R3-->OP2["outpaint prompt<br/>扩展1.5倍画布"]
+    OP2-->OUT2["6张输出"]
+</div></div>
+
+<div class="card"><h2 class="t2">🗄️ 配置体系</h2><div class="mermaid">
+graph TB
+    CFG["config.py · 10个@dataclass"]
+    CFG-->W["WebUIConfig<br/>SD API :7861"]
+    CFG-->M2["ModelConfig<br/>MediaPipe·CPU"]
+    CFG-->FR["FaceRotationConfig<br/>-30°/+30°/0°"]
+    CFG-->GN["GenerationConfig<br/>30步·512px"]
+    CFG-->CN["ControlNetConfig<br/>本地·条件强度0.85"]
+    CFG-->SC["StrongControlConfig<br/>ComfyUI·IP-Adapter"]
+    CFG-->OC["OutpaintConfig<br/>1.5倍·降噪0.8"]
+    CFG-->QC2["QwenImageEditConfig<br/>DashScope·Max模型"]
+    CFG-->MC["MilvusConfig<br/>向量库·默认关闭"]
+    CFG-->RC["RedisConfig<br/>缓存·默认关闭"]
+</div></div>
+
+</div>
+<div class="foot">Agent工单3 · 文生图智能体 · 人脸旋转+扩图 · 三条生成路径</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#ff8c00',primaryTextColor:'#d4d4d4',primaryBorderColor:'#ff6b35',lineColor:'#00c896',secondaryColor:'#1a1a0a',tertiaryColor:'#0a0a0a',fontFamily:'Noto Sans SC'},mindmap:{useMaxWidth:true}});</script>
+</body></html>
