@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小家记账 · 智能体</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- ====== 侧边栏 ====== -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">📒</div>
+            <div class="brand-text">
+                <span class="brand-name">小家记账</span>
+                <span class="brand-sub">AI 智能体</span>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon income-icon">📥</div>
+                <div class="stat-info">
+                    <span class="stat-label">本月收入</span>
+                    <span class="stat-value" id="stat-income">¥0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon expense-icon">📤</div>
+                <div class="stat-info">
+                    <span class="stat-label">本月支出</span>
+                    <span class="stat-value" id="stat-expense">¥0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon balance-icon">💰</div>
+                <div class="stat-info">
+                    <span class="stat-label">本月结余</span>
+                    <span class="stat-value" id="stat-balance">¥0</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon count-icon">📝</div>
+                <div class="stat-info">
+                    <span class="stat-label">总记录</span>
+                    <span class="stat-value" id="stat-count">0 笔</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="model-badge">
+                <span class="badge-dot"></span>
+                DeepSeek · 在线
+            </div>
+        </div>
+    </aside>
+
+    <!-- ====== 主区域 ====== -->
+    <main class="main">
+        <!-- 顶部栏 -->
+        <header class="topbar">
+            <h1 class="page-title">家庭记账本</h1>
+            <span class="today-date" id="today-date"></span>
+        </header>
+
+        <!-- 对话区 -->
+        <div class="chat-container">
+            <div class="chat-header">
+                <span class="chat-title">💬 对话</span>
+                <button class="btn-icon" id="clear-chat" title="清空对话">🗑️</button>
+            </div>
+            <div class="chat-messages" id="chat-box">
+                <div class="msg-row bot">
+                    <div class="msg-avatar">🤖</div>
+                    <div class="msg-bubble">
+                        <div class="msg-content">您好，欢迎使用咱们小家专属记账本！<br>请按照「x年x月x日，谁做什么事收入/支出多少钱」的格式来输入~</div>
+                        <div class="msg-time">刚刚</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 快捷操作 -->
+            <div class="quick-actions" id="quick-actions">
+                <span class="quick-label">快速测试</span>
+                <button class="chip" data-msg="今天女儿买了双登山鞋499元">🛍️ 记账测试</button>
+                <button class="chip" data-msg="7月5日妈妈收到报销1000元">💵 收入测试</button>
+                <button class="chip" data-msg="看下这个月家里花钱明细">📋 明细查询</button>
+                <button class="chip" data-msg="这个月女儿花了多少钱">📊 汇总查询</button>
+                <button class="chip" data-msg="删除女儿报旅游团的费用">🗑️ 删除测试</button>
+            </div>
+
+            <!-- 输入区 -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input type="text" id="message-input"
+                           placeholder="输入账目信息，如「今天妈妈买菜花了50元」..."
+                           autocomplete="off">
+                    <button class="btn-send" id="send-btn" title="发送">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="19" x2="12" y2="5"></line>
+                            <polyline points="5 12 12 5 19 12"></polyline>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据面板 -->
+        <div class="data-panel">
+            <div class="panel-header">
+                <span class="panel-title">📄 已存账目</span>
+                <button class="btn-sm" id="refresh-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                    </svg>
+                    刷新
+                </button>
+            </div>
+            <div class="table-wrapper">
+                <table id="records-table">
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>成员</th>
+                            <th>收支</th>
+                            <th>类别</th>
+                            <th>事项</th>
+                            <th>金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="empty-row">
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <span class="empty-icon">📭</span>
+                                    <span>暂无数据，开始记账吧</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Agent工单1 记账本 — 系统架构图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0b0d17;color:#e0e0e0;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+.header{text-align:center;padding:28px 20px 10px;background:linear-gradient(135deg,#1a1d35,#0b0d17)}
+.header h1{font-size:28px;background:linear-gradient(90deg,#f59e0b,#ef4444,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{color:#888;margin-top:6px;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px;max-width:1700px;margin:0 auto}
+.card{background:#1a1d35;border-radius:16px;padding:20px;border:1px solid #252845}
+.card.full{grid-column:1/-1}
+.card h2{font-size:17px;margin-bottom:14px;text-align:center}
+.c1{color:#f59e0b}.c2{color:#10b981}.c3{color:#6366f1}.c4{color:#ec4899}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.footer{text-align:center;padding:10px;color:#555;font-size:12px}
+</style></head><body>
+<div class="header"><h1> 家庭记账本 AI 智能体 — 系统架构图</h1><p>Flask + DeepSeek LLM + SQLite · 自然语言记账全栈架构</p></div>
+<div class="grid">
+
+<!-- 主架构总览 -->
+<div class="card full"><h2 class="c1"> 全栈架构总览</h2><div class="mermaid">
+graph TB
+    subgraph B[" 展示层 Presentation"]
+        UI["index.html 单页应用"]
+        JS["app.js 聊天+数据表格"]
+        CSS["style.css 豪华UI主题"]
+    end
+
+    subgraph W[" 接口层 Web/API"]
+        Flask["Flask 应用工厂"]
+        R1["POST /api/chat 对话"]
+        R2["GET /api/records 记录列表"]
+        R3["GET /api/welcome 欢迎"]
+    end
+
+    subgraph S[" 业务逻辑层 Service"]
+        LS["LedgerService 核心编排"]
+        H_R["_handle_record 记账"]
+        H_Q["_handle_detail 明细查询"]
+        H_S["_handle_summary 汇总统计"]
+        H_D["两步删除/修改"]
+    end
+
+    subgraph P[" 解析层 Parser"]
+        MP["MessageParser"]
+        Tier1["Tier1: LLM 深度解析"]
+        Tier2["Tier2: Regex 规则回退"]
+        Intent["10种意图分类"]
+        Extract["实体提取+归一化"]
+    end
+
+    subgraph L[" LLM层"]
+        LC["LLMClient"]
+        SP["LEDGER_SYSTEM_PROMPT<br/>系统提示词 ~150行"]
+        DeepSeekAPI["DeepSeek Chat API<br/>api.deepseek.com"]
+    end
+
+    subgraph D[" 数据层 Data"]
+        LDB["LedgerDatabase"]
+        SQL[("SQLite<br/>money_notes表")]
+    end
+
+    UI-->|"HTTP"|Flask
+    Flask-->R1 & R2 & R3
+    R1-->LS
+    LS-->MP-->Tier1-->LC-->DeepSeekAPI
+    Tier1-.->|"LLM不可用"|Tier2
+    MP-->Intent-->Extract
+    LS-->LDB-->SQL
+    R2-->LDB
+</div></div>
+
+<!-- 典型请求时序图 -->
+<div class="card full"><h2 class="c2"> 记账请求完整时序图</h2><div class="mermaid">
+sequenceDiagram
+    participant U as 👤 用户浏览器
+    participant F as Flask /api/chat
+    participant LS as LedgerService
+    participant MP as MessageParser
+    participant LC as LLMClient
+    participant DS as DeepSeek API
+    participant DB as LedgerDatabase
+
+    U->>F: POST {"message":"今天女儿买了登山鞋499元"}
+    F->>LS: handle_message(message)
+    LS->>MP: parse(message)
+    MP->>LC: parse_message(text)
+    LC->>LC: 拼接日期上下文
+    LC->>DS: Chat Completion (system_prompt + user_msg)
+    DS-->>LC: JSON: intent=record, member=女儿, amount=499...
+    LC-->>MP: parsed dict
+    MP->>MP: _try_llm_parse() 结果归一化
+    MP-->>LS: {intent:"record", record:{...}, reply:"..."}
+
+    LS->>LS: intent=record 分发到 _handle_record()
+    LS->>DB: find_records() 查重检测
+    DB-->>LS: [] 无重复
+
+    LS->>DB: add_record(record)
+    DB->>DB: INSERT INTO money_notes ...
+    DB-->>LS: record_id=42
+
+    LS->>LS: 构建回复文本
+    LS-->>F: {reply:"2026年06月23日，买鞋，登山鞋，-499元", data:{...}}
+    F-->>U: JSON response
+    U->>U: 添加到聊天气泡 + 刷新数据表格
+</div></div>
+
+<!-- 意图处理分支 -->
+<div class="card full"><h2 class="c3"> 意图分发处理器</h2><div class="mermaid">
+graph TB
+    INPUT["handle_message(message)"]
+    INPUT --> PARSE["parser.parse() LLM+Regex"]
+    PARSE --> INTENT{"intent 意图分类"}
+
+    INTENT -->|"record"| REC["_handle_record()"]
+    INTENT -->|"query_purchase_day"| QPD["_handle_purchase_day()"]
+    INTENT -->|"query_detail"| QD["_handle_detail()"]
+    INTENT -->|"query_summary"| QS["_handle_summary()"]
+    INTENT -->|"update"| UPD["_prepare_update()"]
+    INTENT -->|"confirm_update"| CUPD["_confirm_update()"]
+    INTENT -->|"delete"| DEL["_prepare_delete()"]
+    INTENT -->|"confirm_delete"| CDEL["_confirm_delete()"]
+    INTENT -->|"incomplete"| INC["返回引导提示"]
+    INTENT -->|"chat"| CHAT["闲聊回复"]
+
+    REC --> DUP{"查重?"} -->|无重复| INSERT["INSERT INTO money_notes"]
+    DUP -->|有重复| SKIP["跳过·返回提示"]
+    INSERT --> REPLY["格式化回复: 日期+类别+物品+金额"]
+
+    QS --> TYPE{"汇总类型"}
+    TYPE --> A["A类: 按成员统计支出<br/>每人各项消费明细"]
+    TYPE --> B["B类: 按物品关键字聚合<br/>智能单位 本/双/份"]
+    TYPE --> C["C类: 全局收支概览<br/>总收入/支出/次数"]
+
+    DEL --> FIND["匹配记录"] --> CONFIRM["返回确认提示<br/>询问是否删除"]
+    CDEL --> SOFT["软删除: SET enabled=0"]
+</div></div>
+
+<!-- 数据流图 -->
+<div class="card"><h2 class="c1"> 数据流全景</h2><div class="mermaid">
+graph LR
+    subgraph Input[" 输入"]
+        NL["自然语言输入<br/>今天女儿买了登山鞋499元"]
+    end
+
+    subgraph Parse[" 解析"]
+        LLM2["DeepSeek LLM<br/>意图识别+实体提取"]
+        RX2["Regex规则<br/>金额/成员/日期提取"]
+    end
+
+    subgraph Dispatch[" 业务分发"]
+        Record["记账 record"]
+        Query["查询 query_detail/summary"]
+        Modify["修改 update"]
+        Delete["删除 delete"]
+    end
+
+    subgraph Data[" 数据操作"]
+        DB2[("money_notes表")]
+        Insert["INSERT 新增记录"]
+        Select["SELECT 条件查询"]
+        SoftDel["UPDATE enabled=0 软删除"]
+    end
+
+    subgraph Output[" 输出"]
+        Reply["回复文本+结构化数据"]
+        Table["数据表格+月度统计"]
+    end
+
+    NL-->LLM2-->Record & Query & Modify & Delete
+    NL-->RX2-->Record
+    Record-->Insert
+    Query-->Select
+    Modify-->DB2
+    Delete-->SoftDel
+    Insert & Select & SoftDel-->Reply-->Table
+</div></div>
+
+<!-- 部署架构 -->
+<div class="card"><h2 class="c4"> 部署架构</h2><div class="mermaid">
+graph TB
+    subgraph Server[" 服务器"]
+        Py["Python 3.10+"]
+        Flask2["Flask :5050"]
+        SQLite2[("SQLite 嵌入式DB<br/>零配置·零运维")]
+    end
+
+    subgraph External[" 外部服务"]
+        DSAPI["DeepSeek Chat API<br/>api.deepseek.com"]
+        Note["OpenAI兼容协议<br/>可随时换后端"]
+    end
+
+    subgraph Config[" 配置"]
+        CFG["部署/config.json<br/>LLM Key·Model·Port"]
+    end
+
+    subgraph Browser[" 浏览器"]
+        SPA["单页应用 SPA<br/>聊天+数据表格+统计"]
+    end
+
+    Flask2-->Py
+    Flask2-->|"openai库调用"|DSAPI
+    Flask2-->SQLite2
+    CFG-->Flask2
+    Browser-->|"http://127.0.0.1:5050"|Flask2
+</div></div>
+
+<!-- API路由表 -->
+<div class="card"><h2 class="c3"> API 路由表</h2><div class="mermaid">
+graph LR
+    R1["GET /<br/>渲染 index.html"] & R2["POST /api/chat<br/>NL对话 {message:'...'}<br/>→ {reply, data}"] & R3["GET /api/records<br/>获取全部记录列表<br/>→ {records:[...]}"] & R4["GET /api/welcome<br/>欢迎消息+今日日期<br/>→ {message, date}"]
+</div></div>
+
+<!-- 关键技术栈 -->
+<div class="card"><h2 class="c2"> 技术栈</h2><div class="mermaid">
+graph TB
+    subgraph PyEco[" Python 生态"]
+        A1["Flask 3.0 Web框架"]
+        A2["openai 1.0 API客户端"]
+        A3["sqlite3 标准库DB"]
+        A4["logging 日志系统"]
+    end
+    subgraph AI[" AI 模型"]
+        B1["DeepSeek Chat API"]
+        B2["System Prompt ~150行 工程设计"]
+        B3["JSON结构化输出"]
+        B4["10种意图分类"]
+    end
+    subgraph FE[" 前端"]
+        C1["原生JS 无框架"]
+        C2["CSS Variables 设计系统"]
+        C3["Fetch API 异步请求"]
+        C4["Jinja2 模板渲染"]
+    end
+    subgraph Patterns[" 设计模式"]
+        D1["LLM优先·Regex回退"]
+        D2["依赖注入·工厂模式"]
+        D3["两步确认·防误操作"]
+        D4["软删除·数据可审计"]
+    end
+</div></div>
+
+<!-- 系统提示词工程 -->
+<div class="card full"><h2 class="c4"> System Prompt 工程设计</h2><div class="mermaid">
+graph TB
+    SP["LEDGER_SYSTEM_PROMPT ~150行"]
+    SP --> Persona[" 角色: '小家记账' 智能管家"]
+    SP --> Members[" 家庭成员: 爸爸/妈妈/女儿/我"]
+    SP --> Intents[" 10种意图 JSON Schema"]
+    SP --> Rules[" 分类规则: 消费类别映射"]
+    SP --> Format[" 回复格式: 日期+成员+类别+物品+金额"]
+    SP --> Constraints[" 约束: 只输出JSON·不编造·追问不完整信息"]
+
+    Intents --> R["record: {record_date,member,action_type,category,item_name,amount}"]
+    Intents --> QD2["query_detail: {member,month_prefix,item_keyword}"]
+    Intents --> QS2["query_summary: {member,month_prefix,item_keyword}"]
+    Intents --> DEL2["delete: {record_id}"]
+    Intents --> UPD2["update: {record_id,field,new_value}"]
+</div></div>
+
+</div>
+<div class="footer">Agent工单1 · 家庭记账本 AI 智能体 · 系统架构图</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#1a1d35',primaryTextColor:'#e0e0e0',primaryBorderColor:'#6366f1',lineColor:'#6366f1',secondaryColor:'#12152a',tertiaryColor:'#0f1119'},flowchart:{useMaxWidth:true,htmlLabels:true},sequence:{useMaxWidth:true,boxMargin:10}});</script>
+</body></html>

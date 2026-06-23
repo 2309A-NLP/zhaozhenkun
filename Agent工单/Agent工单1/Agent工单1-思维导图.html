@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent工单1 记账本 — 思维导图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0f1119;color:#e0e0e0;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+.header{text-align:center;padding:28px 20px 10px;background:linear-gradient(135deg,#1a1d35,#0f1119)}
+.header h1{font-size:28px;background:linear-gradient(90deg,#10b981,#06b6d4,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{color:#888;margin-top:6px;font-size:14px}
+.container{display:flex;flex-wrap:wrap;gap:20px;padding:20px;max-width:1600px;margin:0 auto}
+.card{flex:1;min-width:480px;background:#1a1d35;border-radius:16px;padding:20px;border:1px solid #252845}
+.card h2{font-size:18px;margin-bottom:14px;color:#a5b4fc;text-align:center}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.footer{text-align:center;padding:10px;color:#555;font-size:12px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1> 家庭记账本 AI 智能体 — 项目思维导图</h1>
+  <p>Agent工单1 · 自然语言记账 · DeepSeek LLM 驱动</p>
+</div>
+<div class="container">
+
+<div class="card">
+  <h2> 项目全景</h2>
+  <div class="mermaid">
+mindmap
+  root((家庭记账本 AI Agent))
+    Web前端层
+      index.html 单页应用
+      app.js 交互逻辑
+      style.css 豪华UI主题
+      聊天对话界面
+      数据记录表格
+      月度统计面板
+      快捷操作按钮
+    Flask Web层
+      web_app.py 应用工厂
+      /api/chat 对话接口
+      /api/records 记录查询
+      /api/welcome 欢迎消息
+      依赖注入模式
+    NLU解析引擎
+      LLMClient DeepSeek API
+      MessageParser 两级解析
+      LLM优先解析 Tier1
+      Regex回退解析 Tier2
+      意图识别分类
+      实体提取归一化
+    ::icon(fa fa-database)
+    业务逻辑层
+      LedgerService 核心编排
+      record 记账处理
+      query_detail 明细查询
+      query_summary 汇总统计
+      delete 两步删除
+      update 两步修改
+      去重检测
+    数据持久层
+      SQLite 嵌入式数据库
+      money_notes 表
+      软删除 enabled字段
+      灵活条件查询
+      金额汇总统计
+  </div>
+</div>
+
+<div class="card">
+  <h2> 核心对话流程</h2>
+  <div class="mermaid">
+graph LR
+    U["👤 用户输入"]
+    W["🌐 Flask /api/chat"]
+    SV["🔀 LedgerService<br/>handle_message()"]
+    P["🧠 MessageParser<br/>parse()"]
+    LLM["🤖 LLMClient<br/>DeepSeek API"]
+    RX["📝 Regex<br/>规则回退"]
+    DB["🗄️ LedgerDatabase<br/>SQLite CRUD"]
+    R["💬 回复文本+数据"]
+
+    U-->|"POST 今天女儿买了登山鞋499元"|W
+    W-->SV-->P
+    P-->|"Tier1: LLM解析"|LLM
+    LLM-->|"JSON: intent/record/reply"|P
+    P-.->|"LLM不可用时"|RX
+    RX-.->|"规则提取结果"|P
+    P-->SV
+    SV-->|"intent dispatch"|DB
+    DB-->SV-->R
+    R-->W-->U
+  </div>
+</div>
+
+<div class="card">
+  <h2> 意图分类体系</h2>
+  <div class="mermaid">
+mindmap
+  root((10种意图))
+    record 记账
+      支出/收入识别
+      金额自动提取
+      类别智能匹配
+      成员别名归一
+    query_detail 明细查询
+      条件组合查询
+      关键字模糊搜索
+      月度统计
+    query_summary 汇总统计
+      A类 成员支出汇总
+      B类 物品关键字聚合
+      C类 全局收支概览
+      智能单位选择
+    query_purchase_day 购买日查询
+    delete 删除确认
+      两步防误删
+      确认关键词检测
+    confirm_delete 执行删除
+      软删除 enabled=0
+      数据可审计
+    update 修改确认
+      新旧值对比展示
+    confirm_update 执行修改
+      字段白名单校验
+    incomplete 信息不完整
+      引导用户补充
+    chat 闲聊兜底
+  </div>
+</div>
+
+<div class="card">
+  <h2>📁 项目目录结构</h2>
+  <div class="mermaid">
+graph TD
+    ROOT["📁 Agent工单1/"]
+    ROOT --> Run["run.py · 主入口"]
+    ROOT --> Readme["00_README.md"]
+    ROOT --> Req["requirements.txt"]
+    ROOT --> DBFile[("money_notes.db")]
+    ROOT --> 研发["📁 研发/ 核心代码"]
+    ROOT --> 部署["📁 部署/ 前端+配置"]
+    ROOT --> 测试["📁 测试/ 测试用例"]
+    ROOT --> 设计["📁 设计/ 设计文档"]
+    ROOT --> 优化["📁 优化/ 优化记录"]
+
+    研发 --> db["database.py<br/>LedgerDatabase 数据层"]
+    研发 --> llm["llm_client.py<br/>LLMClient 大模型客户端"]
+    研发 --> parser["parser.py<br/>MessageParser 自然语言解析"]
+    研发 --> service["service.py<br/>LedgerService 业务编排"]
+    研发 --> web["web_app.py<br/>Flask Web应用工厂"]
+    研发 --> log["logger_config.py<br/>日志配置"]
+
+    部署 --> cfg["config.json<br/>运行时配置"]
+    部署 --> html["templates/index.html<br/>前端页面"]
+    部署 --> js["static/app.js<br/>前端交互逻辑"]
+    部署 --> css["static/style.css<br/>豪华UI样式"]
+    部署 --> logs["logs/ 运行日志"]
+
+    测试 --> testPy["test_app.py<br/>13个端到端测试"]
+    测试 --> testMd["测试说明.md"]
+  </div>
+</div>
+
+<div class="card">
+  <h2>🔄 MessageParser 两级解析架构</h2>
+  <div class="mermaid">
+graph TB
+    INPUT["用户输入文本"]
+    CHECK{"空消息?"} -->|是| EMPTY["返回空结果"]
+    CHECK -->|否| CONF{"确认删除<br/>关键词?"}
+    CONF -->|是| CONFIRM_DEL["返回 confirm_delete"]
+    CONF -->|否| LLM_TRY["_try_llm_parse()<br/>调用 DeepSeek API"]
+    LLM_TRY --> LLM_OK{"LLM返回<br/>有效JSON?"}
+    LLM_OK -->|是| NORM["结果归一化<br/>· 金额转float<br/>· 填充month_prefix<br/>· 生成默认reply"]
+    LLM_OK -->|否| REGEX["_regex_parse()<br/>规则回退解析"]
+    REGEX --> DISPATCH["意图分发"]
+    DISPATCH --> REC["_parse_record()<br/>正则提取金额/成员/日期"]
+    DISPATCH --> QRY["_parse_query()<br/>查询关键词提取"]
+    DISPATCH --> DEL["_parse_delete()<br/>删除目标匹配"]
+    DISPATCH --> UPD["_parse_update()<br/>修改参数提取"]
+    NORM --> OUTPUT["解析结果 dict"]
+    REC --> OUTPUT
+    QRY --> OUTPUT
+    DEL --> OUTPUT
+    UPD --> OUTPUT
+  </div>
+</div>
+
+<div class="card">
+  <h2>💾 数据库设计</h2>
+  <div class="mermaid">
+erDiagram
+    money_notes {
+        INTEGER id PK "自增主键"
+        TEXT record_date "记账日期 YYYY-MM-DD"
+        TEXT member "家庭成员"
+        TEXT action_type "收入/支出"
+        TEXT category "消费类别"
+        TEXT item_name "物品名称"
+        REAL amount "金额"
+        INTEGER enabled "软删除标记 1=有效"
+        TEXT created_at "创建时间"
+    }
+  </div>
+</div>
+
+</div>
+<div class="footer">Agent工单1 · 家庭记账本 AI 智能体 · 思维导图</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true, theme: 'dark',
+  themeVariables: { primaryColor: '#10b981', primaryTextColor: '#e0e0e0', primaryBorderColor: '#06b6d4', lineColor: '#6366f1', secondaryColor: '#1a1d35', tertiaryColor: '#12152a' },
+  mindmap: { useMaxWidth: true }
+});
+</script>
+</body>
+</html>
