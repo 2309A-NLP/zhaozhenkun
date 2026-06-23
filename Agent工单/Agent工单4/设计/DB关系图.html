@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>基金数据库 — 表关系图</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#0a0f1e,#101830,#0a0f1e);color:#ccc;font-family:'PingFang SC','Microsoft YaHei',sans-serif;min-height:100vh}
+.header{text-align:center;padding:30px 20px 10px}
+.header h1{font-size:28px;background:linear-gradient(90deg,#6366f1,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{color:#666;margin-top:6px;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px 30px}
+.card{background:rgba(20,25,45,.8);border-radius:16px;padding:20px;border:1px solid rgba(99,102,241,.1)}
+.card.full{grid-column:1/-1}
+.card h2{text-align:center;margin-bottom:14px;color:#a5b4fc;font-size:17px}
+.mermaid{display:flex;justify-content:center;overflow:auto}
+.footer{text-align:center;padding:12px;color:#444;font-size:12px}
+</style></head><body>
+<div class="header"><h1>基金数据库 · 表关系图</h1><p>博金杯比赛数据.db · 1.46GB · 10张表</p></div>
+<div class="grid">
+<div class="card full"><h2>实体关系图 (ER Diagram)</h2><div class="mermaid">
+erDiagram
+    FUND_BASIC["基金基本信息"]{string 基金代码 PK "主键"
+string 基金简称 "名称"
+string 管理人 "基金公司"
+string 成立日期 "YYYYMMDD"
+string 基金类型 "混合型/股票型/债券型/货币型"}
+    FUND_DAILY["基金日行情表"]{string 基金代码 FK "关联基金"
+string 交易日 "YYYYMMDD"
+float 单位净值 ""
+float 累计净值 ""}
+    FUND_SCALE["基金规模变动表"]{string 基金代码 FK ""
+string 截止日期 ""
+float 报告期总申购份额 ""
+float 报告期总赎回份额 ""
+string 报告类型 "季报/中报/年报"}
+    FUND_HOLDER["基金份额持有人结构"]{string 基金代码 FK ""
+string 截止日期 ""
+float 机构持有份额 ""
+float 个人持有份额 ""}
+    STOCK_HOLDING["基金股票持仓明细"]{string 基金代码 FK ""
+string 股票代码 FK ""
+float 持仓市值 ""
+float 占净值比例 ""}
+    BOND_HOLDING["基金债券持仓明细"]{string 基金代码 FK ""
+string 债券代码 ""
+float 持仓市值 ""}
+    CB_HOLDING["基金可转债持仓明细"]{string 基金代码 FK ""
+string 对应股票代码 FK ""
+float 持仓市值 ""}
+    A_STOCK["A股票日行情表"]{string 股票代码 "索引"
+string 交易日 "YYYYMMDD"
+float 收盘价元 ""
+float 昨收盘元 ""
+float 成交量化 ""}
+    HK_STOCK["港股票日行情表"]{string 股票代码 ""
+string 交易日 "YYYYMMDD"
+float 收盘价元 ""
+float 昨收盘元 ""}
+    INDUSTRY["A股公司行业划分表"]{string 股票代码 FK ""
+string 交易日期 "YYYYMMDD"
+string 行业划分标准 "中信/申万"
+string 一级行业名称 ""}
+
+    FUND_BASIC ||--o{ FUND_DAILY : "基金代码"
+    FUND_BASIC ||--o{ FUND_SCALE : "基金代码"
+    FUND_BASIC ||--o{ FUND_HOLDER : "基金代码"
+    FUND_BASIC ||--o{ STOCK_HOLDING : "基金代码"
+    FUND_BASIC ||--o{ BOND_HOLDING : "基金代码"
+    FUND_BASIC ||--o{ CB_HOLDING : "基金代码"
+    STOCK_HOLDING }o--|| A_STOCK : "股票代码"
+    CB_HOLDING }o--|| A_STOCK : "对应股票代码"
+    A_STOCK ||--o{ INDUSTRY : "股票代码+交易日"
+</div></div>
+<div class="card"><h2>基金相关表 (7张)</h2><div class="mermaid">
+graph TB
+    FB["基金基本信息 核心表"]-->FD["基金日行情表"]
+    FB-->FS["基金规模变动表"]
+    FB-->FH["基金份额持有人结构"]
+    FB-->SH["基金股票持仓明细"]
+    FB-->BH["基金债券持仓明细"]
+    FB-->CB["基金可转债持仓明细"]
+</div></div>
+<div class="card"><h2>股票相关表 + JOIN</h2><div class="mermaid">
+graph TB
+    SH2["基金股票持仓明细"]-->|"股票代码"|AS["A股票日行情表"]
+    CB2["基金可转债持仓明细"]-->|"对应股票代码"|AS
+    AS-->|"股票代码+交易日"|IND["A股公司行业划分表"]
+    HK["港股票日行情表 独立表"]
+</div></div>
+<div class="card full"><h2>辅助视图(系统自动创建)</h2><div class="mermaid">
+graph LR
+    V1["stock_daily_change A股涨跌幅=(收盘-昨收)/昨收*100"]
+    V2["hk_stock_daily_change 港股涨跌幅"]
+    V3["stock_limit_up 涨停标记 涨幅>=9.8%"]
+</div></div>
+</div>
+<div class="footer">基金数据智能问答 · NL2SQL · DB关系图</div>
+<script>mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{primaryColor:'#1a1d35',primaryTextColor:'#ccc',primaryBorderColor:'#6366f1',lineColor:'#06b6d4',secondaryColor:'#0f3460'}});</script>
+</body></html>

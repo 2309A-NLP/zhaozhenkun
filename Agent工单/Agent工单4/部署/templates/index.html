@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金数据智能问答</title>
+    <style>
+        /* ===== CSS变量 & 全局 ===== */
+        :root {
+            --bg-primary: #0b0d17;
+            --bg-secondary: #12152a;
+            --bg-card: #1a1d35;
+            --bg-input: #14172b;
+            --accent-1: #6366f1;
+            --accent-2: #8b5cf6;
+            --accent-3: #06b6d4;
+            --text-primary: #eef0ff;
+            --text-secondary: #9498b8;
+            --text-muted: #636884;
+            --border: #252845;
+            --success: #10b981;
+            --user-bubble: linear-gradient(135deg, #4f46e5, #7c3aed);
+            --ai-bubble: #1e2140;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh; display: flex; flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ===== 背景动态光效 ===== */
+        .bg-glow { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.12; pointer-events: none; z-index: 0; }
+        .bg-glow.g1 { width: 500px; height: 500px; background: var(--accent-1); top: -200px; left: -150px; }
+        .bg-glow.g2 { width: 400px; height: 400px; background: var(--accent-2); bottom: -150px; right: -100px; }
+        .bg-glow.g3 { width: 300px; height: 300px; background: var(--accent-3); top: 40%; left: 50%; transform: translate(-50%, -50%); }
+
+        /* ===== 顶部导航栏 ===== */
+        .header {
+            position: relative; z-index: 1;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 24px; border-bottom: 1px solid var(--border);
+            background: rgba(18,21,42,0.85); backdrop-filter: blur(20px);
+        }
+        .header .logo { display: flex; align-items: center; gap: 10px; }
+        .header .logo .icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+        .header .logo h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+        .header .status {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--text-secondary);
+        }
+        .header .status .dot {
+            width: 7px; height: 7px; border-radius: 50%; background: var(--success);
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+        /* ===== 聊天主区域 ===== */
+        .chat-container {
+            position: relative; z-index: 1;
+            flex: 1; overflow-y: auto; padding: 24px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .chat-container::-webkit-scrollbar { width: 5px; }
+        .chat-container::-webkit-scrollbar-track { background: transparent; }
+        .chat-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        /* ===== 欢迎界面 ===== */
+        .welcome {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            flex: 1; text-align: center; gap: 12px; padding: 20px;
+        }
+        .welcome .w-icon {
+            width: 70px; height: 70px; border-radius: 20px;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            display: flex; align-items: center; justify-content: center; font-size: 36px;
+            margin-bottom: 8px; box-shadow: 0 8px 32px rgba(99,102,241,0.3);
+        }
+        .welcome h2 { font-size: 22px; font-weight: 600; }
+        .welcome p { color: var(--text-secondary); font-size: 14px; max-width: 420px; line-height: 1.6; }
+        .welcome .tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+        .welcome .tags span {
+            padding: 6px 14px; border-radius: 20px; font-size: 12px;
+            background: var(--bg-card); border: 1px solid var(--border);
+            color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+        }
+        .welcome .tags span:hover { border-color: var(--accent-1); color: var(--accent-1); }
+
+        /* ===== 消息气泡 ===== */
+        .message { display: flex; gap: 10px; animation: slideUp 0.3s ease-out; max-width: 85%; }
+        .message.user { align-self: flex-end; flex-direction: row-reverse; }
+        .message.ai { align-self: flex-start; }
+        .message .avatar {
+            width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+        }
+        .message.user .avatar { background: linear-gradient(135deg, var(--accent-1), var(--accent-2)); }
+        .message.ai .avatar { background: var(--bg-card); border: 1px solid var(--border); }
+        .message .bubble {
+            padding: 12px 16px; border-radius: var(--radius-sm);
+            font-size: 14px; line-height: 1.65; word-break: break-word;
+        }
+        .message.user .bubble {
+            background: var(--user-bubble); color: #fff;
+            border-bottom-right-radius: 3px;
+        }
+        .message.ai .bubble {
+            background: var(--ai-bubble); color: var(--text-primary);
+            border: 1px solid var(--border); border-bottom-left-radius: 3px;
+        }
+        .message .time {
+            font-size: 10px; color: var(--text-muted); margin-top: 4px;
+            padding: 0 4px;
+        }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== 加载动画 ===== */
+        .typing { display: flex; gap: 5px; padding: 4px 0; }
+        .typing span {
+            width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted);
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .typing span:nth-child(1) { animation-delay: 0s; }
+        .typing span:nth-child(2) { animation-delay: 0.2s; }
+        .typing span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes bounce { 0%,80%,100%{transform:scale(0.7);opacity:0.5;} 40%{transform:scale(1);opacity:1;} }
+
+        /* ===== 底部输入区 ===== */
+        .input-area {
+            position: relative; z-index: 1;
+            padding: 16px 24px 20px; border-top: 1px solid var(--border);
+            background: rgba(18,21,42,0.85); backdrop-filter: blur(20px);
+        }
+        .input-wrapper {
+            display: flex; gap: 10px; align-items: flex-end;
+            background: var(--bg-input); border-radius: var(--radius);
+            border: 1px solid var(--border); padding: 6px;
+            transition: border-color 0.25s;
+        }
+        .input-wrapper:focus-within { border-color: var(--accent-1); box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
+        .input-wrapper textarea {
+            flex: 1; background: transparent; border: none; outline: none;
+            color: var(--text-primary); font-size: 14px; font-family: inherit;
+            padding: 8px 10px; resize: none; min-height: 24px; max-height: 120px;
+        }
+        .input-wrapper textarea::placeholder { color: var(--text-muted); }
+        .send-btn {
+            width: 40px; height: 40px; border-radius: 50%; border: none;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            color: #fff; cursor: pointer; font-size: 18px; flex-shrink: 0;
+            transition: all 0.25s; display: flex; align-items: center; justify-content: center;
+        }
+        .send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 20px rgba(99,102,241,0.4); }
+        .send-btn:active { transform: scale(0.95); }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .input-hint {
+            text-align: center; font-size: 11px; color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 640px) {
+            .header { padding: 10px 16px; }
+            .header .logo h1 { font-size: 15px; }
+            .chat-container { padding: 16px; }
+            .input-area { padding: 12px 16px 16px; }
+            .message { max-width: 92%; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 背景光效 -->
+<div class="bg-glow g1"></div><div class="bg-glow g2"></div><div class="bg-glow g3"></div>
+
+<!-- 顶部导航 -->
+<header class="header">
+    <div class="logo">
+        <div class="icon">💹</div>
+        <h1>基金数据智能问答</h1>
+    </div>
+    <div class="status"><span class="dot"></span> DeepSeek 在线</div>
+</header>
+
+<!-- 聊天区域 -->
+<div class="chat-container" id="chatContainer">
+    <!-- 欢迎界面 -->
+    <div class="welcome" id="welcomeBlock">
+        <div class="w-icon">📊</div>
+        <h2>你好，我能帮你查询基金数据</h2>
+        <p>基于10张金融数据表（基金/股票/债券/行情/行业），支持自然语言查询，AI自动生成SQL并返回答案。</p>
+        <div class="tags">
+            <span onclick="askTag('景顺长城中短债债券C基金在20210331的前三大持仓债券是什么？')">🔍 基金持仓查询</span>
+            <span onclick="askTag('20210105综合金融行业涨跌幅最大的股票是？')">📈 涨跌幅排名</span>
+            <span onclick="askTag('2019年嘉实基金成立了多少基金？')">🏢 基金公司统计</span>
+            <span onclick="askTag('股票002244在20191220的收盘价？')">💹 股票行情</span>
+            <span onclick="askTag('20210415建筑材料行业涨幅超5%的股票数量？')">📊 行业分析</span>
+            <span onclick="askTag('2021年三季度有多少家基金发生净赎回？')">📉 赎回统计</span>
+        </div>
+    </div>
+</div>
+
+<!-- 底部输入区 -->
+<div class="input-area">
+    <div class="input-wrapper">
+        <textarea id="questionInput" rows="1" placeholder="输入你的基金/股票问题，例如：20210105综合金融行业涨跌幅最大股票是？"
+                  onkeydown="handleKeyDown(event)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="发送">
+            ➤
+        </button>
+    </div>
+    <div class="input-hint">按 Enter 发送 · Shift+Enter 换行 · 数据来源：博金杯比赛数据库(2019-2021)</div>
+</div>
+
+<script>
+    // ===== DOM元素 =====
+    const chatContainer = document.getElementById('chatContainer');  // 聊天区域
+    const questionInput = document.getElementById('questionInput');  // 输入框
+    const sendBtn = document.getElementById('sendBtn');              // 发送按钮
+    const welcomeBlock = document.getElementById('welcomeBlock');    // 欢迎界面
+    let isProcessing = false;  // 是否正在处理请求
+
+    // ===== 自动调整输入框高度 =====
+    questionInput.addEventListener('input', function() {
+        this.style.height = 'auto';  // 重置高度
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';  // 自适应
+    });
+
+    // ===== 键盘事件处理 =====
+    function handleKeyDown(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {  // Enter发送
+            e.preventDefault();  // 阻止默认换行
+            sendMessage();  // 发送消息
+        }
+    }
+
+    // ===== 点击推荐标签 =====
+    function askTag(question) {
+        questionInput.value = question;  // 填入问题
+        questionInput.style.height = 'auto';  // 重置高度
+        sendMessage();  // 自动发送
+    }
+
+    // ===== 发送消息 =====
+    async function sendMessage() {
+        if (isProcessing) return;  // 正在处理中，忽略
+        const question = questionInput.value.trim();  // 获取问题文本
+        if (!question) return;  // 空内容忽略
+
+        // 隐藏欢迎界面
+        if (welcomeBlock) welcomeBlock.style.display = 'none';  // 移除欢迎
+
+        // 添加用户消息气泡
+        addMessage('user', question);  // 用户消息
+        questionInput.value = '';  // 清空输入框
+        questionInput.style.height = 'auto';  // 重置高度
+
+        // 添加AI加载动画
+        const loadingId = addLoading();  // 加载气泡
+
+        // 设置处理状态
+        isProcessing = true;  // 锁定
+        sendBtn.disabled = true;  // 禁用按钮
+
+        try {
+            const response = await fetch('/api/chat', {  // 调用后端API
+                method: 'POST',  // POST请求
+                headers: { 'Content-Type': 'application/json' },  // JSON头
+                body: JSON.stringify({ question: question })  // 请求体
+            });
+            const data = await response.json();  // 解析JSON响应
+            removeLoading(loadingId);  // 移除加载动画
+
+            if (data.error) {  // 后端返回错误
+                addMessage('ai', '⚠️ ' + data.error);  // 显示错误
+            } else {
+                addMessage('ai', data.answer, data.elapsed);  // 显示答案
+            }
+        } catch (err) {
+            removeLoading(loadingId);  // 移除加载
+            addMessage('ai', '⚠️ 网络连接失败，请检查服务是否正常运行');  // 网络错误
+        }
+
+        isProcessing = false;  // 解锁
+        sendBtn.disabled = false;  // 启用按钮
+        questionInput.focus();  // 聚焦输入框
+    }
+
+    // ===== 添加消息气泡 =====
+    function addMessage(role, content, elapsed) {
+        const div = document.createElement('div');  // 创建消息容器
+        div.className = 'message ' + role;  // 设置CSS类
+
+        const avatar = document.createElement('div');  // 头像
+        avatar.className = 'avatar';  // 头像样式
+        avatar.textContent = role === 'user' ? '👤' : '🤖';  // 头像图标
+
+        const body = document.createElement('div');  // 消息体
+        const bubble = document.createElement('div');  // 气泡
+        bubble.className = 'bubble';  // 气泡样式
+        bubble.textContent = content;  // 消息内容
+
+        const timeDiv = document.createElement('div');  // 时间标签
+        timeDiv.className = 'time';  // 时间样式
+        const now = new Date();  // 当前时间
+        const timeStr = now.getHours().toString().padStart(2,'0') + ':' +
+                        now.getMinutes().toString().padStart(2,'0');  // HH:MM
+        let label = timeStr;  // 显示时间
+        if (elapsed !== undefined) label += ' · ' + elapsed + 's';  // 附加耗时
+        timeDiv.textContent = label;  // 设置时间文本
+
+        body.appendChild(bubble);  // 气泡加入消息体
+        body.appendChild(timeDiv);  // 时间加入消息体
+        div.appendChild(avatar);  // 头像加入消息
+        div.appendChild(body);  // 消息体加入消息
+        chatContainer.appendChild(div);  // 消息加入聊天区
+
+        // 滚动到底部
+        chatContainer.scrollTop = chatContainer.scrollHeight;  // 平滑滚动
+    }
+
+    // ===== 加载动画 =====
+    function addLoading() {
+        const div = document.createElement('div');  // 消息容器
+        div.className = 'message ai';  // AI消息样式
+        div.id = 'loading-' + Date.now();  // 唯一ID
+
+        const avatar = document.createElement('div');  // 头像
+        avatar.className = 'avatar';  // 头像样式
+        avatar.textContent = '🤖';  // 机器人
+
+        const body = document.createElement('div');  // 消息体
+        const bubble = document.createElement('div');  // 气泡
+        bubble.className = 'bubble';  // 气泡样式
+        bubble.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';  // 加载点
+
+        body.appendChild(bubble);  // 气泡加入消息体
+        div.appendChild(avatar);  // 头像加入消息
+        div.appendChild(body);  // 消息体加入消息
+        chatContainer.appendChild(div);  // 加入聊天区
+        chatContainer.scrollTop = chatContainer.scrollHeight;  // 滚动
+        return div.id;  // 返回ID用于移除
+    }
+
+    // ===== 移除加载动画 =====
+    function removeLoading(id) {
+        const el = document.getElementById(id);  // 查找元素
+        if (el) el.remove();  // 移除
+    }
+
+    // ===== 初始聚焦 =====
+    questionInput.focus();  // 页面加载后聚焦输入框
+</script>
+
+</body>
+</html>
