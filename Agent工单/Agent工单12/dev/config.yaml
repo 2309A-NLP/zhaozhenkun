@@ -1,0 +1,29 @@
+# ============================================================
+# 医疗智能体-健康咨询 Agent 配置文件
+# 工单编号: 人工智能NLP-Agent数字人项目-医疗智能体-健康咨询
+# ============================================================
+
+# LLM 大模型配置（API Key 优先从环境变量 DEEPSEEK_API_KEY 读取）
+llm:
+  api_base: "https://api.deepseek.com"
+  model: "deepseek-v4-flash"
+  max_tokens: 1024
+  temperature: 0.1
+  streaming: false
+
+# Neo4j 图数据库连接
+neo4j:
+  uri: "bolt://localhost:7687"
+  user: "neo4j"
+  password: "12345678"
+  database: "neo4j"
+
+# 知识图谱数据
+kg:
+  data_file: "medical.json"
+  batch_size: 500
+
+# API 服务
+server:
+  host: "0.0.0.0"
+  port: 8003
