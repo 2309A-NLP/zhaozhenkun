@@ -1,0 +1,61 @@
+# ===================================================================
+# .dockerignore — 排除不需要打入镜像的文件
+# ===================================================================
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Git
+.git/
+.gitignore
+
+# 临时/缓存文件
+*.log
+*.log.old
+研发/results/
+
+# 运行时生成（通过 Volume 管理）
+static/output/*.mp4
+static/avatars/*.png
+*.db
+
+# 文档（生产环境不需要）
+*.pptx
+*.docx
+*.pdf
+*.png
+*.jpg
+*.mp4
+
+# 自测/调试脚本
+test/
+
+# 部署配置（不进镜像）
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile.*
+.dockerignore
+.env
+.env.*
+
+# 说明文档
+*.md
+!部署/部署说明.md
+
+# Windows 文件
+desktop.ini
+Thumbs.db
+
+# 其他
+*.tmp
+*.temp

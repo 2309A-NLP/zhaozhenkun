@@ -1,0 +1,90 @@
+# ===================================================================
+# Agent 工单10 — 数字人系统 Docker 部署
+# ===================================================================
+# 启动:  docker compose up -d
+# 停止:  docker compose down
+# 查看:  docker compose logs -f digitalhuman
+# 日志:  logs/
+#
+# 源代码: ../Agent工单9
+# 数据持久化: ./ (当前目录)
+# ===================================================================
+
+services:
+  digitalhuman:
+    build:
+      context: ../Agent工单9
+      dockerfile: ../Agent工单10/Dockerfile
+    image: digitalhuman:latest
+    container_name: digitalhuman
+    restart: unless-stopped
+
+    ports:
+      - "5002:5002"
+
+    # GPU 透传（SadTalker 数字人推理）
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    environment:
+      - APP_HOME=/app
+      - TOOLS_ROOT=/app/tools
+      - LEDGER_DB_PATH=/app/data/db/money_notes.db
+      - SCHEDULE_DB_PATH=/app/data/db/schedule_notes.db
+      - SCHEDULE_LOCAL_DB_PATH=/app/data/db/schedule_notes.db
+      - VOICE_SAMPLES_DIR=/app/data/voice_samples
+      - DH_AVATARS_DIR=/app/data/avatars
+      - DH_OUTPUT_DIR=/app/data/output
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - QWEN_API_KEY=${QWEN_API_KEY}
+      - GPTSOVITS_URL=${GPTSOVITS_URL:-}
+      - SADTALKER_ROOT=${SADTALKER_ROOT:-/models/SadTalker/wwd123/sadtalker}
+      - FUND_DB_DIR=${FUND_DB_DIR:-/app/data/financial}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+
+    volumes:
+      # ==== 持久化数据 → 当前目录 ====
+      - ./db:/app/data/db
+      - ./voice_samples:/app/data/voice_samples
+      - ./avatars:/app/data/avatars
+      - ./output:/app/data/output
+      - ./logs:/app/data/logs
+
+      # ==== 模型权重（只读） ====
+      - ${SADTALKER_MODEL_PATH:-/home/zzy/SadTalker_modelscope}:/models/SadTalker:ro
+
+      # ==== 兄弟项目数据库（只读） ====
+      - ${AGENT1_PATH:-/mnt/c/Users/31326/Desktop/Agent工单1}:/app/tools/Agent工单1:ro
+      - ${AGENT2_PATH:-/mnt/c/Users/31326/Desktop/Agent工单2}:/app/tools/Agent工单2:ro
+      - ${AGENT3_PATH:-/mnt/c/Users/31326/Desktop/Agent工单3}:/app/tools/Agent工单3:ro
+      - ${AGENT4_PATH:-/mnt/c/Users/31326/Desktop/Agent工单4}:/app/tools/Agent工单4:ro
+      - ${AGENT5_PATH:-/mnt/c/Users/31326/Desktop/Agent工单5}:/app/tools/Agent工单5:ro
+
+      # ==== 金融数据集（可选） ====
+      - ${FINANCIAL_DATA_PATH:-/mnt/c/Users/31326/bs_challenge_financial_14b_dataset}:/app/data/financial:ro
+
+    networks:
+      - agent-network
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+networks:
+  agent-network:
+    name: agent-network
+    driver: bridge
