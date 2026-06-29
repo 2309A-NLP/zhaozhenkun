@@ -1,0 +1,39 @@
+# ===================================================================
+# Agent 工单11 — 医疗挂号Agent Docker 部署
+# ===================================================================
+# 启动:  docker compose up -d
+# 停止:  docker compose down
+# ===================================================================
+
+services:
+  medical-agent:
+    build:
+      context: ..
+      dockerfile: 部署/Dockerfile
+    image: medical-agent:latest
+    container_name: medical-agent
+    restart: unless-stopped
+
+    ports:
+      - "5003:5003"
+
+    environment:
+      - HOSPITAL_DB_PATH=/app/hospital.db
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-sk-70c456e35e914eb88fa233a04856bcf4}
+
+    volumes:
+      # 挂载数据库(可读写, 挂号记录持久化)
+      - ../hospital.db:/app/hospital.db
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
