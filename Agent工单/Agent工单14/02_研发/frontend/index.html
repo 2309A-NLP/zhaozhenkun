@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>医疗智能体 - 影像分析系统 V1.0</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="header-brand">
+        <span class="logo">🏥</span>
+        <div>
+            <h1>医疗智能体 - 影像分析系统</h1>
+            <p class="subtitle">工单编号：人工智能 NLP-Agent 数字人项目-医疗智能体-影像分析 V1.0</p>
+        </div>
+    </div>
+    <div class="header-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">检查连接中...</span>
+    </div>
+</header>
+
+<div class="main-container">
+    <aside class="sidebar">
+        <div class="panel">
+            <h2>📤 影像上传</h2>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" accept="image/*" hidden>
+                <div class="upload-placeholder">
+                    <span class="upload-icon">🩻</span>
+                    <p>点击或拖拽上传医学影像</p>
+                    <small>支持 JPEG / PNG / DICOM / TIFF</small>
+                </div>
+                <img id="previewImage" class="preview-image" style="display:none">
+            </div>
+            <div class="upload-info" id="uploadInfo" style="display:none">
+                <span class="file-name" id="fileName"></span>
+                <span class="file-size" id="fileSize"></span>
+            </div>
+            <button class="btn btn-primary" id="uploadBtn" disabled>上传影像</button>
+        </div>
+        <div class="panel">
+            <h2>📋 会话记录</h2>
+            <div class="history-list" id="historyList">
+                <p class="empty-hint">暂无记录</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="content">
+        <div class="tabs">
+            <button class="tab active" data-tab="vqa">🔍 VQA 视觉问答</button>
+            <button class="tab" data-tab="mrg">📋 MRG 报告生成</button>
+            <button class="tab" data-tab="rag">📚 RAG 知识检索</button>
+            <button class="tab" data-tab="map">🗺️ 就医导航</button>
+            <button class="tab" data-tab="asst">💬 健康助理</button>
+            <button class="tab tab-highlight" onclick="window.open('/map','_blank')" style="background:#fef3c7;border:2px solid #f59e0b;font-weight:bold">🗺️📍 地图导航</button>
+        </div>
+
+        <!-- VQA -->
+        <div class="tab-panel active" id="vqaPanel">
+            <div class="chat-box">
+                <div class="chat-messages" id="vqaMessages">
+                    <div class="msg system"><div class="msg-body">
+                        <p>👋 欢迎使用 VQA 视觉问答</p>
+                        <p>请先上传医学影像，然后输入诊断问题</p>
+                    </div></div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="vqaInput" placeholder="输入问题..." disabled>
+                    <button class="btn btn-send" id="vqaSendBtn" disabled>发送</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MRG -->
+        <div class="tab-panel" id="mrgPanel">
+            <div class="mrg-box">
+                <div class="mrg-top">
+                    <label>临床信息（可选）：</label>
+                    <textarea id="mrgClinicalInfo" placeholder="输入症状、病史..." rows="3"></textarea>
+                    <button class="btn btn-primary" id="mrgGenerateBtn" disabled>🩺 生成诊断报告</button>
+                </div>
+                <div class="mrg-result" id="mrgOutput">
+                    <p class="placeholder">📄 上传影像后点击生成</p>
+                </div>
+                <div class="mrg-actions" id="mrgActions" style="display:none">
+                    <button class="btn btn-outline" onclick="printReport()">🖨 打印</button>
+                    <button class="btn btn-outline" onclick="downloadReport()">📥 下载</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RAG -->
+        <div class="tab-panel" id="ragPanel">
+            <div class="rag-layout">
+                <div class="rag-side">
+                    <h3>📚 知识库</h3>
+                    <p>文档数：<span id="ragDocCount">...</span></p>
+                    <div class="rag-btns">
+                        <input type="file" id="ragFileInput" accept=".pdf,.txt,.docx" hidden>
+                        <button class="btn btn-outline btn-sm" id="ragUploadBtn">📄 上传文档</button>
+                        <button class="btn btn-outline btn-sm" id="ragBatchBtn">📂 批量导入</button>
+                    </div>
+                </div>
+                <div class="rag-main">
+                    <div class="chat-messages" id="ragMessages">
+                        <div class="msg system"><div class="msg-body"><p>📚 RAG 检索增强生成</p></div></div>
+                    </div>
+                    <div class="chat-input-bar">
+                        <input type="text" id="ragInput" placeholder="输入医学问题...">
+                        <button class="btn btn-send" id="ragSendBtn">检索</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 就医导航（高德地图 MCP） -->
+        <div class="tab-panel" id="mapPanel">
+            <div class="chat-box">
+                <div class="chat-messages" id="mapMessages">
+                    <div class="msg system"><div class="msg-body">
+                        <p>🗺️ 你好！我是就医导航助手</p>
+                        <p>可以帮你查询：<b>医院位置</b> · <b>出行路线</b> · <b>附近住宿</b> · <b>周边餐饮</b></p>
+                        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+                            <button class="btn btn-outline btn-sm map-quick-btn" data-query="北京协和医院附近的酒店">🏨 医院附近酒店</button>
+                            <button class="btn btn-outline btn-sm map-quick-btn" data-query="北京协和医院周边有什么好吃的">🍽️ 医院周边美食</button>
+                            <button class="btn btn-outline btn-sm map-quick-btn" data-query="从天安门到北京协和医院怎么走">🚗 去医院的路线</button>
+                            <button class="btn btn-outline btn-sm map-quick-btn" data-query="搜索北京市的三甲医院">🏥 搜索三甲医院</button>
+                        </div>
+                    </div></div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="mapInput" placeholder="输入就医导航问题...">
+                    <button class="btn btn-send" id="mapSendBtn">发送</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 健康助理 -->
+        <div class="tab-panel" id="asstPanel">
+            <div class="chat-box">
+                <div class="chat-messages" id="asstMessages">
+                    <div class="msg system"><div class="msg-body">
+                        <p>💬 你好！我是健康助理"小医"</p>
+                        <p>可以帮你：<b>挂号预约</b> · <b>健康咨询</b> · <b>导诊问答</b></p>
+                        <p style="margin-top:8px">例如：</p>
+                        <ul>
+                            <li>"帮大宝挂一个今天下午2点儿科专家的号"</li>
+                            <li>"我头晕乏力三天了，该看什么科？"</li>
+                            <li>"做CT检查前需要注意什么？"</li>
+                        </ul>
+                    </div></div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="asstInput" placeholder="输入你的问题...">
+                    <button class="btn btn-send" id="asstSendBtn">发送</button>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- JS 由 main.py 内联到页面中，无需外部引用 -->
+</body>
+</html>

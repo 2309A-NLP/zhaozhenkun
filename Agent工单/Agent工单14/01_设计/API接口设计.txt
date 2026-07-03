@@ -1,0 +1,114 @@
+# API 接口设计文档
+
+**工单编号（影像分析）：** 人工智能 NLP-Agent 数字人项目-医疗智能体-影像分析 V1.0
+**工单编号（MCP）：** 人工智能 NLP-Agent 数字人项目-医疗智能体-MCP V1.0
+
+---
+
+## 1. 基础信息
+
+- **协议**：HTTP/1.1 REST
+- **Base URL**：`http://localhost:8080`
+- **Content-Type**：`application/json`（上传除外）
+- **字符编码**：UTF-8
+
+## 2. 接口清单
+
+### 2.1 系统
+```
+GET  /api/health         → 健康检查
+```
+
+### 2.2 影像上传
+```
+POST /api/upload/image    → 上传医学影像（multipart/form-data）
+POST /api/upload/document → 上传文档（multipart/form-data）
+```
+
+### 2.3 VQA 视觉问答
+```
+POST /api/vqa/ask
+{ "image_filename": "xxx.jpg", "question": "影像中是否有异常？" }
+→ { "success": true, "answer": "...", "model": "qwen-vl-plus", "latency_ms": 806 }
+```
+
+### 2.4 MRG 报告生成
+```
+POST /api/mrg/generate
+{ "image_filename": "xxx.jpg", "clinical_info": "咳嗽3天" }
+→ { "success": true, "report": "【检查项目】...", "model": "qwen-vl-plus" }
+```
+
+### 2.5 RAG 检索增强生成
+```
+POST /api/rag/query       → 知识库检索问答
+POST /api/rag/ingest      → 单个文档入库
+POST /api/rag/ingest/batch → 批量导入知识库
+GET  /api/rag/stats        → 知识库统计
+DELETE /api/rag/clear      → 清空知识库
+```
+
+### 2.6 健康助理（挂号 + 咨询）
+```
+POST /api/assistant/chat     → 健康助理对话（挂号/咨询/导诊）
+POST /api/registration/chat  → 挂号管理（自然语言挂号/查号/取消）
+POST /api/consultation/chat  → 健康咨询（知识图谱 6143 种疾病）
+```
+
+### 2.7 地图服务（高德地图 MCP 对接） 🆕
+```
+POST /api/map/search            → 关键词地点搜索（医院/酒店/餐厅）
+  { "keywords": "三甲医院", "city": "北京", "poi_type": "090000" }
+  → { "success": true, "pois": [...], "total": 100 }
+
+POST /api/map/nearby            → 周边 POI 搜索（住宿/餐饮/交通）
+  { "location": "116.397,39.909", "poi_type": "100000", "radius": 3000 }
+  → { "success": true, "pois": [...] }
+
+POST /api/map/directions        → 路线规划（驾车/步行/公交）
+  { "origin": "116.397,39.909", "destination": "116.415,39.912", "mode": "driving" }
+  → { "success": true, "paths": [...] }
+
+POST /api/map/geocode           → 地址 → 经纬度
+  { "address": "北京协和医院" }
+  → { "success": true, "location": "116.415,39.912" }
+
+POST /api/map/regeocode         → 经纬度 → 地址
+  ?location=116.397,39.909
+  → { "success": true, "formatted_address": "北京市东城区..." }
+
+POST /api/map/hospital-services → 医院周边一站式查询
+  ?hospital_name=协和医院&city=北京
+  → { "success": true, "hospital": {...}, "services": {"住宿":[...], "餐饮":[...]} }
+
+POST /api/map/ip-location       → IP 定位（获取当前城市）
+POST /api/map/chat              → 地图自然语言对话（Agent 智能体核心入口）★
+  { "message": "北京协和医院附近有什么酒店？" }
+  → { "success": true, "reply": "为您找到协和医院附近5家酒店...", "intent": {...} }
+```
+
+### 2.8 MCP Server（独立进程，stdio 传输） 🆕
+```
+工具列表（11 个）:
+  高德地图: amap_search_poi | amap_search_nearby | amap_get_directions
+           amap_geocode | amap_regeocode | amap_weather | amap_hospital_services
+  医疗智能体: medical_health_consult | medical_rag_search | medical_registration_intent
+
+启动: cd 02_研发/mcp_server && python mcp_serve.py
+MCP 客户端配置: mcp_server/mcp_client_config.json
+```
+
+### 2.9 前端页面
+```
+GET  /        → 医疗智能体主界面（单页应用，含 VQA/MRG/RAG/健康助理/就医导航）
+GET  /map     → 交互式地图导航页面（高德地图 JS API，搜索+路线+标记+信息窗）🆕
+```
+
+## 3. 错误码
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 200 | 成功 |
+| 400 | 请求参数错误（格式不支持、文件过大等） |
+| 404 | 资源不存在（文件未找到等） |
+| 500 | 服务器内部错误 |
