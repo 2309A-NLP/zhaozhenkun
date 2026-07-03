@@ -1,0 +1,92 @@
+# API 接口设计文档
+
+**工单编号：** 人工智能 NLP-Agent 数字人项目-医疗智能体-影像分析 V1.0
+
+---
+
+## 1. 基础信息
+
+- **协议**：HTTP/1.1 REST
+- **Base URL**：`http://localhost:8000`
+- **Content-Type**：`application/json`（上传除外）
+- **字符编码**：UTF-8
+
+## 2. 接口清单
+
+### 2.1 健康检查
+```
+GET /api/health
+→ { "status": "healthy", "knowledge_base_docs": 19198 }
+```
+
+### 2.2 影像上传
+```
+POST /api/upload/image
+Content-Type: multipart/form-data
+参数: file (图片文件)
+→ { "success": true, "filename": "20250629_xxx.jpg", "url": "/api/images/xxx" }
+```
+
+### 2.3 VQA 视觉问答
+```
+POST /api/vqa/ask
+{
+    "image_filename": "20250629_xxx.jpg",
+    "question": "影像中是否有肺部渗出性病变？",
+    "system_prompt": "可选"
+}
+→ {
+    "success": true,
+    "answer": "右肺下野可见片状高密度影...",
+    "model": "qwen-vl-plus",
+    "latency_ms": 806.71,
+    "usage": {"prompt_tokens": 111, "completion_tokens": 27}
+}
+```
+
+### 2.4 MRG 报告生成
+```
+POST /api/mrg/generate
+{
+    "image_filename": "20250629_xxx.jpg",
+    "clinical_info": "患者男性，65岁，咳嗽3天"
+}
+→ {
+    "success": true,
+    "report": "【检查项目】\n胸部X线平片\n...",
+    "model": "qwen-vl-plus",
+    "latency_ms": 3774.74
+}
+```
+
+### 2.5 RAG 检索问答
+```
+POST /api/rag/query
+{
+    "question": "肺炎的影像学表现有哪些？",
+    "top_k": 5
+}
+→ {
+    "success": true,
+    "answer": "根据参考资料...",
+    "retrieved_docs": [...],
+    "retrieval_count": 3
+}
+```
+
+### 2.6 RAG 文档入库
+```
+POST /api/rag/ingest     → 单个文档入库
+POST /api/rag/ingest/batch → 批量导入
+GET  /api/rag/stats      → 知识库统计
+DELETE /api/rag/clear    → 清空知识库
+```
+
+## 3. 错误码
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 200 | 成功 |
+| 400 | 请求参数错误（格式不支持、文件过大等） |
+| 404 | 资源不存在（文件未找到等） |
+| 500 | 服务器内部错误 |

@@ -1,0 +1,30 @@
+# 工单编号：人工智能 NLP-Agent 数字人项目-医疗智能体-影像分析 V1.0
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ../02_研发/backend
+      dockerfile: ../../04_部署/docker/backend.Dockerfile
+    container_name: medical-agent-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - QWEN_API_KEY=${QWEN_API_KEY}
+      - QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+    volumes:
+      - ../data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../02_研发/frontend
+      dockerfile: ../../04_部署/docker/frontend.Dockerfile
+    container_name: medical-agent-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
