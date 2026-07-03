@@ -1,0 +1,144 @@
+# API 接口设计文档
+
+**工单编号（影像分析）：** 人工智能 NLP-Agent 数字人项目-医疗智能体-影像分析 V1.0
+**工单编号（语音识别）：** 人工智能 NLP-Agent 数字人项目-医疗智能体-实时语音识别 V1.0
+
+---
+
+## 1. 基础信息
+
+- **协议**：HTTP/1.1 REST
+- **Base URL**：`http://localhost:8000`
+- **Content-Type**：`application/json`（上传除外）
+- **字符编码**：UTF-8
+
+## 2. 接口清单
+
+### 2.1 健康检查
+```
+GET /api/health
+→ { "status": "healthy", "knowledge_base_docs": 19198 }
+```
+
+### 2.2 影像上传
+```
+POST /api/upload/image
+Content-Type: multipart/form-data
+参数: file (图片文件)
+→ { "success": true, "filename": "20250629_xxx.jpg", "url": "/api/images/xxx" }
+```
+
+### 2.3 VQA 视觉问答
+```
+POST /api/vqa/ask
+{
+    "image_filename": "20250629_xxx.jpg",
+    "question": "影像中是否有肺部渗出性病变？",
+    "system_prompt": "可选"
+}
+→ {
+    "success": true,
+    "answer": "右肺下野可见片状高密度影...",
+    "model": "qwen-vl-plus",
+    "latency_ms": 806.71,
+    "usage": {"prompt_tokens": 111, "completion_tokens": 27}
+}
+```
+
+### 2.4 MRG 报告生成
+```
+POST /api/mrg/generate
+{
+    "image_filename": "20250629_xxx.jpg",
+    "clinical_info": "患者男性，65岁，咳嗽3天"
+}
+→ {
+    "success": true,
+    "report": "【检查项目】\n胸部X线平片\n...",
+    "model": "qwen-vl-plus",
+    "latency_ms": 3774.74
+}
+```
+
+### 2.5 RAG 检索问答
+```
+POST /api/rag/query
+{
+    "question": "肺炎的影像学表现有哪些？",
+    "top_k": 5
+}
+→ {
+    "success": true,
+    "answer": "根据参考资料...",
+    "retrieved_docs": [...],
+    "retrieval_count": 3
+}
+```
+
+### 2.6 RAG 文档入库
+```
+POST /api/rag/ingest     → 单个文档入库
+POST /api/rag/ingest/batch → 批量导入
+GET  /api/rag/stats      → 知识库统计
+DELETE /api/rag/clear    → 清空知识库
+```
+
+### 2.7 实时语音识别（通义听悟对接） 🆕
+
+#### 2.7.1 实时识别 WebSocket ★核心
+```
+WS /api/asr/ws/realtime
+浏览器发送: 二进制 PCM 音频帧 (16kHz, 16bit, 单声道)
+服务端推送: {"type":"partial","text":"中间识别结果"}
+服务端推送: {"type":"final","text":"最终识别结果"}
+服务端推送: {"type":"done","task_id":"xxx"}
+```
+
+#### 2.7.2 后处理转录文本（DeepSeek分析）
+```
+POST /api/asr/process
+{ "transcript": "对话全文..." }
+→ {
+    "success": true,
+    "summary": "全文摘要",
+    "chapters": "章节速览",
+    "speaker_summary": "发言总结",
+    "todos": "待办事项",
+    "qa": "问答对",
+    "keywords": "关键词1, 关键词2..."
+  }
+```
+
+#### 2.7.3 翻译
+```
+POST /api/asr/translate
+{ "text": "你好", "target_lang": "英文" }
+→ { "success": true, "translation": "Hello" }
+```
+
+#### 2.7.4 任务轮询（轮询方式）
+```
+POST /api/asr/task/create  → 创建任务，返回 task_id
+{ "transcript": "..." }
+→ { "success": true, "task_id": "abc123" }
+
+GET /api/asr/task/{task_id}  → 轮询结果（前端每2秒调用）
+→ { "status":"processing" }  // 继续轮询
+→ { "status":"done", "result":{...} }  // 完成
+```
+
+#### 2.7.5 回调接收（回调方式）
+```
+POST /api/asr/callback
+{ "task_id": "xxx", "status": "completed", "result": {...} }
+→ { "success": true }
+```
+
+## 3. 错误码
+
+| HTTP 状态码 | 说明 |
+|-------------|------|
+| 200 | 成功 |
+| 400 | 请求参数错误（格式不支持、文件过大等） |
+| 404 | 资源不存在（文件未找到等） |
+| 500 | 服务器内部错误 |

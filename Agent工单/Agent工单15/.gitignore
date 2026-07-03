@@ -1,0 +1,36 @@
+# 环境变量（包含 API Key，严禁提交）
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 数据文件（包含敏感数据/用户上传内容）
+data/uploads/
+data/logs/
+data/chroma_db/
+data/avatars/
+data/hospital.db
+
+# 大文件
+*.db
+*.db.bak
+medical.json
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db

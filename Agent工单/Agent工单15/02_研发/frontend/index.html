@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>医疗智能体 - 影像分析系统 V1.0</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="header-brand">
+        <span class="logo">🏥</span>
+        <div>
+            <h1>医疗智能体 - 影像分析系统</h1>
+            <p class="subtitle">工单编号：人工智能 NLP-Agent 数字人项目-医疗智能体-影像分析 V1.0</p>
+        </div>
+    </div>
+    <div class="header-status">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">检查连接中...</span>
+    </div>
+</header>
+
+<div class="main-container">
+    <aside class="sidebar">
+        <div class="panel">
+            <h2>📤 影像上传</h2>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" accept="image/*" hidden>
+                <div class="upload-placeholder">
+                    <span class="upload-icon">🩻</span>
+                    <p>点击或拖拽上传医学影像</p>
+                    <small>支持 JPEG / PNG / DICOM / TIFF</small>
+                </div>
+                <img id="previewImage" class="preview-image" style="display:none">
+            </div>
+            <div class="upload-info" id="uploadInfo" style="display:none">
+                <span class="file-name" id="fileName"></span>
+                <span class="file-size" id="fileSize"></span>
+            </div>
+            <button class="btn btn-primary" id="uploadBtn" disabled>上传影像</button>
+        </div>
+        <div class="panel">
+            <h2>📋 会话记录</h2>
+            <div class="history-list" id="historyList">
+                <p class="empty-hint">暂无记录</p>
+            </div>
+        </div>
+    </aside>
+
+    <main class="content">
+        <div class="tabs">
+            <button class="tab active" data-tab="vqa">🔍 VQA 视觉问答</button>
+            <button class="tab" data-tab="mrg">📋 MRG 报告生成</button>
+            <button class="tab" data-tab="rag">📚 RAG 知识检索</button>
+            <button class="tab" data-tab="map">🗺️ 就医导航</button>
+            <button class="tab" data-tab="asst">💬 健康助理</button>
+            <button class="tab" data-tab="tingwu">🎙️ 通义听悟</button>
+            <button class="tab" data-tab="digital">🤖 数字人</button>
+        </div>
+
+        <!-- VQA -->
+        <div class="tab-panel active" id="vqaPanel">
+            <div class="chat-box">
+                <div class="chat-messages" id="vqaMessages">
+                    <div class="msg system"><div class="msg-body">
+                        <p>👋 欢迎使用 VQA 视觉问答</p>
+                        <p>请先上传医学影像，然后输入诊断问题</p>
+                    </div></div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="vqaInput" placeholder="输入问题..." disabled>
+                    <button class="btn btn-send" id="vqaSendBtn" disabled>发送</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MRG -->
+        <div class="tab-panel" id="mrgPanel">
+            <div class="mrg-box">
+                <!-- MRG 独立上传区 -->
+                <div class="mrg-upload-area" id="mrgUploadArea">
+                    <input type="file" id="mrgFileInput" accept="image/*" hidden>
+                    <div class="mrg-upload-drop" id="mrgDropZone">
+                        <span style="font-size:32px">🩻</span>
+                        <p style="margin:6px 0">点击或拖拽上传医学影像</p>
+                        <small>支持 JPEG / PNG / DICOM / TIFF</small>
+                    </div>
+                    <img id="mrgPreview" style="display:none;max-height:180px;border-radius:8px;margin:0 auto">
+                    <div id="mrgFileInfo" style="display:none;font-size:12px;color:#64748b;text-align:center;margin-top:4px"></div>
+                </div>
+                <div class="mrg-top">
+                    <label>临床信息（可选）：</label>
+                    <textarea id="mrgClinicalInfo" placeholder="输入症状、病史..." rows="2"></textarea>
+                    <button class="btn btn-primary" id="mrgGenerateBtn" disabled>🩺 生成诊断报告</button>
+                </div>
+                <div class="mrg-result" id="mrgOutput">
+                    <p class="placeholder">📄 上传影像后点击生成</p>
+                </div>
+                <div class="mrg-actions" id="mrgActions" style="display:none">
+                    <button class="btn btn-outline" onclick="printReport()">🖨 打印</button>
+                    <button class="btn btn-outline" onclick="downloadReport()">📥 下载</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RAG -->
+        <div class="tab-panel" id="ragPanel">
+            <div class="rag-layout">
+                <div class="rag-side">
+                    <h3>📚 知识库</h3>
+                    <p>文档数：<span id="ragDocCount">...</span></p>
+                    <div class="rag-btns">
+                        <input type="file" id="ragFileInput" accept=".pdf,.txt,.docx" hidden>
+                        <button class="btn btn-outline btn-sm" id="ragUploadBtn">📄 上传文档</button>
+                        <button class="btn btn-outline btn-sm" id="ragBatchBtn">📂 批量导入</button>
+                    </div>
+                </div>
+                <div class="rag-main">
+                    <div class="chat-messages" id="ragMessages">
+                        <div class="msg system"><div class="msg-body"><p>📚 RAG 检索增强生成</p></div></div>
+                    </div>
+                    <div class="chat-input-bar">
+                        <input type="text" id="ragInput" placeholder="输入医学问题...">
+                        <button class="btn btn-send" id="ragSendBtn">检索</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🗺️ 就医导航（高德地图 MCP） -->
+        <div class="tab-panel map-panel" id="mapPanel">
+            <!-- 占位：切到此Tab时才加载地图iframe，避免影响其他Tab -->
+            <div id="mapPlaceholder" style="flex:1;display:flex;align-items:center;justify-content:center;background:#f8fafc;color:#94a3b8;font-size:14px;cursor:pointer"
+                 onclick="loadMapIframe()">
+                <div style="text-align:center">
+                    <div style="font-size:48px;margin-bottom:12px">🗺️</div>
+                    <div>点击加载交互地图</div>
+                    <div style="font-size:11px;margin-top:4px">（高德地图JS API，首次加载需几秒）</div>
+                </div>
+            </div>
+            <iframe id="mapIframe" style="flex:1;width:100%;border:none;display:none"
+                    allow="geolocation"></iframe>
+            <!-- 底部工具栏 -->
+            <div class="map-toolbar">
+                <span style="font-size:11px;color:var(--text2);white-space:nowrap">💬 查询：</span>
+                <input type="text" id="mapInput" placeholder="搜医院/酒店/路线...">
+                <button class="btn btn-send" id="mapSendBtn">发送</button>
+                <a href="/map" target="_blank">🔗 全屏地图</a>
+            </div>
+            <!-- 文字回复区 -->
+            <div class="map-chat-result" id="mapChatResult">
+                <div class="chat-messages" id="mapMessages"></div>
+            </div>
+        </div>
+
+        <!-- 🤖 数字人（照片上传 + 语音对话 + 唇形同步动画） -->
+        <div class="tab-panel" id="digitalPanel">
+            <div style="display:flex;height:100%;min-height:0;gap:0">
+                <!-- 左半区：形象展示 -->
+                <div style="flex:1;min-width:0;background:#1a1a2e;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;border-right:2px solid #e2e8f0;padding:20px">
+                    <!-- 无照片时显示上传区 -->
+                    <div id="avaUploadBox" style="width:80%;max-width:400px;aspect-ratio:3/4;border:2px dashed #475569;border-radius:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#16213e;transition:all .3s">
+                        <div id="avaUploadHint" style="text-align:center;color:#64748b">
+                            <div style="font-size:48px;margin-bottom:12px">📷</div>
+                            <div style="font-size:14px;font-weight:500;color:#94a3b8">点击上传人物照片</div>
+                            <div style="font-size:11px;color:#64748b;margin-top:4px">JPG / PNG · 正面半身照效果最佳</div>
+                        </div>
+                    </div>
+                    <input type="file" id="avaUpload" accept="image/*" style="display:none" />
+                    <!-- 照片容器 + 口型动画叠加层 -->
+                    <div id="avaPhotoWrap" style="display:none;position:relative;width:80%;max-width:400px;aspect-ratio:3/4">
+                        <img id="avaPreview" style="width:100%;height:100%;object-fit:cover;border-radius:12px" />
+                        <!-- 说话时口部波动动画 -->
+                        <div id="avaMouthFx" style="display:none;position:absolute;bottom:28%;left:50%;transform:translateX(-50%);width:18%;aspect-ratio:2/1;background:rgba(255,200,180,.3);border-radius:50%;filter:blur(8px);transition:opacity .15s"></div>
+                    </div>
+                    <!-- 视频播放（SadTalker生成后替换） -->
+                    <video id="avaVideo" loop style="display:none;width:80%;max-width:400px;aspect-ratio:3/4;object-fit:cover;border-radius:12px"></video>
+                    <!-- 状态指示 -->
+                    <div id="avaStatus" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:6px 16px;border-radius:20px;font-size:12px">请先上传照片</div>
+                </div>
+                <!-- 右半区：对话交互 -->
+                <div style="flex:1;min-width:360px;display:flex;flex-direction:column;min-height:0">
+                    <!-- 工具栏 -->
+                    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;flex-wrap:wrap">
+                        <button class="btn btn-primary btn-sm" id="asrRecordBtn">🎙️ 语音输入</button>
+                        <button class="btn btn-sm" id="voiceToggle" style="background:#16a34a;color:#fff">🔊 语音回复</button>
+                        <span id="asrStatus" style="font-size:11px;color:#64748b;margin-left:auto">准备就绪</span>
+                    </div>
+                    <!-- 对话记录 -->
+                    <div id="asrChatArea" style="flex:1;overflow-y:auto;padding:14px;min-height:0">
+                        <div style="text-align:center;padding:30px 20px">
+                            <div style="font-size:48px;margin-bottom:12px">🤖</div>
+                            <div style="font-size:14px;color:#1e293b;font-weight:600">你好！我是数字人"小医"</div>
+                            <div style="font-size:12px;color:#94a3b8;margin-top:6px;line-height:1.8">
+                                上传照片后，输入问题即可对话<br>
+                                AI 回复会同时生成语音 + 唇形同步视频<br>
+                                可问健康问题、挂号建议、医学知识等
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 纪要折叠区 -->
+                    <div id="asrSummary" style="display:none;background:#fff;border-top:1px solid #e2e8f0;padding:8px 12px;font-size:12px;max-height:120px;overflow-y:auto;flex-shrink:0"></div>
+                    <!-- 输入栏 -->
+                    <div class="chat-input-bar" style="flex-shrink:0">
+                        <input type="text" id="digiInput" placeholder="输入问题，小医语音回复你...">
+                        <button class="btn btn-send" id="digiSendBtn">发送</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 健康助理 -->
+        <div class="tab-panel" id="asstPanel">
+            <div class="chat-box">
+                <div class="chat-messages" id="asstMessages">
+                    <div class="msg system"><div class="msg-body">
+                        <p>💬 你好！我是健康助理"小医"</p>
+                        <p>可以帮你：<b>挂号预约</b> · <b>健康咨询</b> · <b>导诊问答</b></p>
+                        <p style="margin-top:8px">例如：</p>
+                        <ul>
+                            <li>"帮大宝挂一个今天下午2点儿科专家的号"</li>
+                            <li>"我头晕乏力三天了，该看什么科？"</li>
+                            <li>"做CT检查前需要注意什么？"</li>
+                        </ul>
+                    </div></div>
+                </div>
+                <div class="chat-input-bar">
+                    <input type="text" id="asstInput" placeholder="输入你的问题...">
+                    <button class="btn btn-send" id="asstSendBtn">发送</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🎙️ 通义听悟 —— 实时语音识别、翻译与会议纪要 -->
+        <div class="tab-panel" id="tingwuPanel">
+            <div style="display:flex;height:100%;min-height:0;gap:0">
+                <!-- 左半区：录音 + 实时转写 -->
+                <div style="flex:1;min-width:360px;display:flex;flex-direction:column;min-height:0;border-right:1px solid #e2e8f0">
+                    <div style="padding:12px 14px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0">
+                        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                            <button class="btn btn-primary btn-sm" id="twRecordBtn">🎙️ 开始录音</button>
+                            <button class="btn btn-sm btn-outline" id="twPauseBtn" disabled>⏸️ 暂停</button>
+                            <select id="twLang" style="font-size:12px;padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px">
+                                <option value="zh">中文</option><option value="en">英文</option>
+                                <option value="ja">日文</option><option value="ko">韩文</option>
+                            </select>
+                            <span id="twStatus" style="font-size:11px;color:#64748b;margin-left:auto">准备就绪</span>
+                        </div>
+                    </div>
+                    <div id="twTranscriptArea" style="flex:1;overflow-y:auto;padding:12px 14px;min-height:0;background:#fafbfc">
+                        <div id="twTranscriptHint" style="text-align:center;padding:40px 20px;color:#94a3b8">
+                            <div style="font-size:36px;margin-bottom:10px">🎙️</div><div>点击「开始录音」进行实时语音识别</div>
+                            <div style="font-size:11px;margin-top:4px">支持中文/英文/日文/韩文</div>
+                        </div>
+                        <div id="twTranscripts" style="display:none"></div>
+                    </div>
+                    <div style="padding:8px 14px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0;display:flex;align-items:center;gap:8px">
+                        <span id="twTimer" style="font-size:12px;color:#64748b;font-family:monospace">00:00</span>
+                        <label style="font-size:11px;display:flex;align-items:center;gap:4px;margin-left:auto;cursor:pointer">
+                            <input type="checkbox" id="twTranslateToggle"> 实时翻译
+                        </label>
+                        <select id="twTargetLang" style="font-size:11px;padding:2px 6px;border:1px solid #cbd5e1;border-radius:4px;display:none">
+                            <option value="英文">英文</option><option value="日文">日文</option>
+                            <option value="韩文">韩文</option><option value="中文">中文</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- 右半区：会议纪要 -->
+                <div style="flex:1;min-width:340px;display:flex;flex-direction:column;min-height:0">
+                    <div style="padding:12px 14px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0;display:flex;align-items:center;gap:8px">
+                        <span style="font-weight:600;font-size:14px">📝 会议纪要</span>
+                        <button class="btn btn-sm btn-outline" id="twSummarizeBtn" disabled>生成纪要</button>
+                        <button class="btn btn-sm btn-outline" id="twClearBtn">清空</button>
+                        <span style="font-size:10px;color:#94a3b8;margin-left:auto">方式:</span>
+                        <select id="twResultMode" style="font-size:10px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:4px">
+                            <option value="poll">轮询</option><option value="callback">回调</option>
+                        </select>
+                    </div>
+                    <div id="twSummaryArea" style="flex:1;overflow-y:auto;padding:12px 14px;min-height:0">
+                        <div style="text-align:center;padding:40px 20px;color:#94a3b8">
+                            <div style="font-size:36px;margin-bottom:10px">📝</div><div>录音结束后点击「生成纪要」</div>
+                            <div style="font-size:11px;margin-top:4px">支持轮询和回调两种方式获取结果</div>
+                        </div>
+                    </div>
+                    <div id="twTaskInfo" style="display:none;padding:8px 14px;background:#f0fdf4;border-top:1px solid #bbf7d0;flex-shrink:0;font-size:11px"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- JS 由 main.py 内联到页面中，无需外部引用 -->
+</body>
+</html>
