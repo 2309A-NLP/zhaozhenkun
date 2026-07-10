@@ -1,0 +1,8 @@
+# 工单编号：人工智能CV-AIGC-16-【必选】文旅Agent任务工单-需求分析与功能设计V1.1-20260306
+# 文旅创新智脑 - Python依赖
+
+fastapi>=0.104.0  # Web框架，提供API路由和SSE流式响应
+uvicorn>=0.24.0   # ASGI服务器，运行FastAPI应用
+httpx>=0.25.0     # 异步HTTP客户端，调用Kimi/DeepSeek/千问API
+python-pptx>=0.6.21  # PPT生成库（可选，不影响对话功能）
+pydantic>=2.0.0   # 数据验证，请求模型

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文旅创新智脑 - 数字人对话</title>
+<!-- 工单编号：人工智能CV-AIGC-16-【必选】文旅Agent任务工单-需求分析与功能设计V1.1-20260306 -->
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+<div class="app">
+<!-- 侧边栏 -->
+<aside class="sidebar">
+  <div class="sidebar-header"><div class="logo"><div class="icon">🧠</div>文旅创新智脑</div><div class="sub">AI Agent v2.0 · 数字人</div></div>
+  <nav class="sidebar-nav">
+    <div class="nav-label">游客服务</div>
+    <div class="nav-item active" data-page="dh"><span class="ni">🤖</span>数字人对话</div>
+    <div class="nav-item" data-page="search"><span class="ni">🔍</span>知识检索</div>
+    <div class="nav-item" data-page="quick"><span class="ni">⚡</span>快捷指令</div>
+    <div class="nav-div"></div>
+    <div class="nav-label">内容生成</div>
+    <div class="nav-item" data-page="generate"><span class="ni">🎨</span>PPT/流程图</div>
+    <div class="nav-div"></div>
+    <div class="nav-label">数据展示</div>
+    <div class="nav-item" data-page="dashboard"><span class="ni">📊</span>管理后台</div>
+  </nav>
+  <div class="sidebar-footer"><span class="dot"></span>Kimi | DeepSeek | 千问</div>
+</aside>
+
+<!-- 主内容 -->
+<main class="main">
+
+<!-- ====== 页面1：数字人对话（沉浸式全屏） ====== -->
+<div class="page active" id="page-dh">
+  <div class="dh-fullscreen"> <!-- 全屏数字人容器 -->
+    <!-- 顶部信息条 -->
+    <div class="dh-topbar">
+      <div class="dh-topbar-left">
+        <div class="dh-status-dot"></div>
+        <span>文旅小智 在线</span>
+      </div>
+      <div class="dh-topbar-right">
+        <select id="modelSelect" onchange="switchModel()" class="dh-model-select">
+          <option value="kimi">Kimi</option>
+          <option value="deepseek">DeepSeek</option>
+          <option value="qwen">千问</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 数字人主舞台 -->
+    <div class="dh-stage" id="dhStage">
+      <!-- 粒子背景 -->
+      <div class="dh-particles" id="dhParticles"></div>
+      <!-- 光环 -->
+      <div class="dh-halo" id="dhHalo"></div>
+      <!-- 数字人形象 -->
+      <div class="dh-body" id="dhBody">
+        <div class="dh-head">
+          <div class="dh-face-display">🧝</div>
+        </div>
+        <div class="dh-torso"></div>
+      </div>
+      <!-- 对话气泡（浮在数字人旁边） -->
+      <div class="dh-speech-bubble" id="dhSpeechBubble" style="display:none">
+        <div class="dh-speech-text" id="dhSpeechText"></div>
+        <div class="dh-speech-arrow"></div>
+      </div>
+      <!-- 用户气泡 -->
+      <div class="dh-user-bubble" id="dhUserBubble" style="display:none">
+        <div class="dh-user-text" id="dhUserText"></div>
+      </div>
+      <!-- 打字指示器 -->
+      <div class="dh-thinking" id="dhThinking" style="display:none">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <!-- 快捷指令悬浮按钮 -->
+    <div class="dh-float-cmds">
+      <button class="dh-fcmd" onclick="quickCmdStream('资源挖掘')" title="资源挖掘">⛏️</button>
+      <button class="dh-fcmd" onclick="quickCmdStream('场景创意')" title="场景创意">✨</button>
+      <button class="dh-fcmd" onclick="quickCmdStream('文化创新')" title="文化创新">🏛️</button>
+      <button class="dh-fcmd" onclick="quickCmdStream('数字营销')" title="数字营销">📱</button>
+      <button class="dh-fcmd" onclick="quickCmdStream('效益提升')" title="效益提升">📈</button>
+    </div>
+
+    <!-- 底部输入区 -->
+    <div class="dh-bottom-input">
+      <button class="dh-mic-btn" title="语音输入（需Chrome/Edge）">🎤</button>
+      <button class="dh-cam-btn" onclick="triggerImageUpload()" title="拍照识物">📷</button>
+      <input type="file" id="imageInput" accept="image/*" capture="environment" style="display:none">
+      <input type="text" class="dh-msg-input" id="chatInput"
+             placeholder="打字、语音或拍照，和文旅小智说话..."
+             onkeydown="if(event.key==='Enter')sendMsg()">
+      <button class="dh-send-btn" id="sendBtn" onclick="sendMsg()">发送</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 页面2：知识检索 ====== -->
+<div class="page" id="page-search">
+  <div class="page-header"><h1>🔍 多模态文旅知识检索</h1><p>工单：CV-AIGC-16 · LLM驱动的RAG式检索</p></div>
+  <div class="search-hero">
+    <h2>探索文旅知识宝库</h2>
+    <p>搜索景点、文物、非遗、历史文化...</p>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="例如：故宫太和殿、黄山攻略..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="sbtn" id="searchBtn" onclick="doSearch()">🔍 搜索</button>
+    </div>
+    <div class="search-mods">
+      <span class="mtag">📝 景点搜索</span><span class="mtag">🏛️ 文物检索</span><span class="mtag">📚 非遗查询</span><span class="mtag">🗺️ 攻略生成</span><span class="mtag">🎭 民俗文化</span><span class="mtag">🍜 美食推荐</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">📋 检索结果 <span id="searchStatus" style="font-size:11px;color:var(--text2)"></span></div>
+    <div id="searchResult" style="font-size:13px;line-height:1.8;min-height:200px;padding:10px 0;white-space:pre-wrap"><p style="color:var(--text2)">输入关键词，AI检索文旅知识</p></div>
+    <div class="typing" id="searchTyping" style="margin:0 10px">AI正在检索<span>.</span><span>.</span><span>.</span></div>
+  </div>
+</div>
+
+<!-- ====== 页面3：快捷指令 ====== -->
+<div class="page" id="page-quick">
+  <div class="page-header"><h1>⚡ 五大快捷指令</h1><p>工单：CV-AIGC-16</p></div>
+  <div class="cmd-grid">
+    <div class="cmd-card" onclick="runQuickCmd('资源挖掘')"><div class="cmd-icon">⛏️</div><div class="cmd-name">资源挖掘</div><div class="cmd-desc">查询整合全国旅游资源数据，分析分布与整合机会</div><button class="btn btn-accent btn-sm">▶ 执行指令</button><div class="cmd-output" id="output-资源挖掘"></div></div>
+    <div class="cmd-card" onclick="runQuickCmd('场景创意')"><div class="cmd-icon">✨</div><div class="cmd-name">场景创意</div><div class="cmd-desc">基于景区特色，AI策划独特旅游场景和体验产品</div><button class="btn btn-accent btn-sm">▶ 执行指令</button><div class="cmd-output" id="output-场景创意"></div></div>
+    <div class="cmd-card" onclick="runQuickCmd('文化创新')"><div class="cmd-icon">🏛️</div><div class="cmd-name">文化创新</div><div class="cmd-desc">挖掘历史文化内涵，创新融合现代元素</div><button class="btn btn-accent btn-sm">▶ 执行指令</button><div class="cmd-output" id="output-文化创新"></div></div>
+    <div class="cmd-card" onclick="runQuickCmd('数字营销')"><div class="cmd-icon">📱</div><div class="cmd-name">数字营销</div><div class="cmd-desc">智能分析市场趋势，生成数字营销策略</div><button class="btn btn-accent btn-sm">▶ 执行指令</button><div class="cmd-output" id="output-数字营销"></div></div>
+    <div class="cmd-card" onclick="runQuickCmd('效益提升')"><div class="cmd-icon">📈</div><div class="cmd-name">效益提升</div><div class="cmd-desc">深度分析运营数据，提供优化方案</div><button class="btn btn-accent btn-sm">▶ 执行指令</button><div class="cmd-output" id="output-效益提升"></div></div>
+  </div>
+  <div class="card" style="margin-top:14px;border:2px dashed var(--accent);text-align:center;padding:24px">
+    <div style="font-size:32px">📋</div><strong>PPT工作文件一键生成</strong><p style="font-size:12px;color:var(--text2);margin:4px 0">自动生成景区规划、策划分析等专业PPT</p>
+    <button class="btn btn-accent" onclick="switchPage('generate')">前往生成 →</button>
+  </div>
+</div>
+
+<!-- ====== 页面4：PPT/流程图 ====== -->
+<div class="page" id="page-generate">
+  <div class="page-header"><h1>🎨 PPT & 流程图生成</h1><p>工单：CV-AIGC-16 · LLM驱动 · python-pptx · Mermaid</p></div>
+  <div class="gen-grid">
+    <div class="gen-card">
+      <h3>📊 PPT自动生成</h3>
+      <label style="font-size:12px;font-weight:600">PPT主题</label>
+      <input type="text" id="pptTopic" placeholder="例如：故宫景区数字化升级方案">
+      <label style="font-size:12px;font-weight:600">页数</label>
+      <input type="number" id="pptCount" value="6" min="3" max="15" style="width:80px">
+      <button class="btn btn-accent" id="pptBtn" onclick="generatePPT()">🤖 AI生成PPT</button>
+      <div class="gen-result" id="pptResult"></div>
+    </div>
+    <div class="gen-card">
+      <h3>📋 流程图自动生成</h3>
+      <label style="font-size:12px;font-weight:600">流程图主题</label>
+      <textarea id="flowTopic" placeholder="例如：游客入园导览服务流程"></textarea>
+      <button class="btn btn-accent" id="flowBtn" onclick="generateFlowchart()">🤖 AI生成流程图</button>
+      <div class="gen-result" id="flowResult"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 页面5：管理后台 ====== -->
+<div class="page" id="page-dashboard">
+  <div class="page-header"><h1>📊 智能管理运营后台</h1><p>工单：CV-AIGC-16</p></div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-icon blue">👥</div><div class="stat-info"><div class="v">12,845</div><div class="l">实时在园游客</div></div></div>
+    <div class="stat-card"><div class="stat-icon green">📈</div><div class="stat-info"><div class="v">38,920</div><div class="l">今日入园人数</div></div></div>
+    <div class="stat-card"><div class="stat-icon purple">🎯</div><div class="stat-info"><div class="v">87.5%</div><div class="l">游客满意度</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange">⚠️</div><div class="stat-info"><div class="v">3</div><div class="l">待处理告警</div></div></div>
+  </div>
+  <div class="dash-grid">
+    <div class="card"><div class="card-header">📊 今日客流量 <span class="badge info">实时</span></div>
+      <div class="bar-chart">
+        <div class="bar-col"><div class="bar" style="height:28%;background:linear-gradient(180deg,#3b82f6,#93c5fd)"></div><span class="bar-label">8时</span></div>
+        <div class="bar-col"><div class="bar" style="height:50%;background:linear-gradient(180deg,#3b82f6,#93c5fd)"></div><span class="bar-label">9时</span></div>
+        <div class="bar-col"><div class="bar" style="height:72%;background:linear-gradient(180deg,#3b82f6,#93c5fd)"></div><span class="bar-label">10时</span></div>
+        <div class="bar-col"><div class="bar" style="height:95%;background:linear-gradient(180deg,#8b5cf6,#c4b5fd)"></div><span class="bar-label">11时</span></div>
+        <div class="bar-col"><div class="bar" style="height:78%;background:linear-gradient(180deg,#3b82f6,#93c5fd)"></div><span class="bar-label">12时</span></div>
+        <div class="bar-col"><div class="bar" style="height:60%;background:linear-gradient(180deg,#3b82f6,#93c5fd)"></div><span class="bar-label">13时</span></div>
+        <div class="bar-col"><div class="bar" style="height:70%;background:linear-gradient(180deg,#3b82f6,#93c5fd)"></div><span class="bar-label">14时</span></div>
+        <div class="bar-col"><div class="bar" style="height:55%;background:linear-gradient(180deg,#3b82f6,#93c5fd)"></div><span class="bar-label">15时</span></div>
+      </div>
+    </div>
+    <div class="card"><div class="card-header">🏷️ 热门景点 TOP5</div>
+      <table class="data-table"><tr><th>#</th><th>景点</th><th>客流量</th><th>状态</th></tr><tr><td>🥇</td><td>太和殿</td><td>3,245</td><td><span class="badge warning">拥挤</span></td></tr><tr><td>🥈</td><td>御花园</td><td>2,890</td><td><span class="badge success">正常</span></td></tr><tr><td>🥉</td><td>珍宝馆</td><td>2,156</td><td><span class="badge success">正常</span></td></tr><tr><td>4</td><td>乾清宫</td><td>1,987</td><td><span class="badge success">正常</span></td></tr><tr><td>5</td><td>钟表馆</td><td>1,562</td><td><span class="badge info">舒适</span></td></tr></table>
+    </div>
+    <div class="card"><div class="card-header">🖥️ IoT设备 <span class="badge success">98%</span></div>
+      <table class="data-table"><tr><th>设备</th><th>位置</th><th>状态</th></tr><tr><td>客流摄像头-A01</td><td>午门</td><td><span class="badge success">正常</span></td></tr><tr><td>客流摄像头-A02</td><td>神武门</td><td><span class="badge success">正常</span></td></tr><tr><td>环境传感器-B03</td><td>珍宝馆</td><td><span class="badge warning">温度偏高</span></td></tr></table>
+    </div>
+    <div class="card"><div class="card-header">🔔 告警 <span class="badge warning">3条</span></div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:11px">
+        <div style="padding:8px;background:#fef2f2;border-radius:6px;border-left:3px solid #ef4444"><strong>🔴 太和殿区域拥挤</strong><br>密度3.2人/m² · 14:32</div>
+        <div style="padding:8px;background:#fffbeb;border-radius:6px;border-left:3px solid #f59e0b"><strong>🟡 珍宝馆温度异常</strong><br>28°C超阈值 · 14:15</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
