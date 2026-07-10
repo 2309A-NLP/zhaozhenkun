@@ -1,0 +1,9 @@
+部署/.env
+.idea/
+__pycache__/
+研发/source/__pycache__/
+研发/source/config/__pycache__/
+研发/source/routes/__pycache__/
+研发/source/services/__pycache__/
+测试/chrome-profile/
+测试/chrome-profile-recheck-cdp/
