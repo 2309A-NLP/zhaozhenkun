@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工单18 - 文旅AI智能导览</title>
+<link rel="stylesheet" href="/static/style.css?v=4">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-l">
+    <span class="tb-icon">🏯</span>
+    <span class="tb-title">文旅AI智能导览</span>
+    <span class="tb-badge">工单18 v3</span>
+  </div>
+  <div class="topbar-r">
+    <select id="langSel" class="tb-sel">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+    </select>
+    <button id="btnNewSess" class="tb-btn">✨ 开始导览</button>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ======== 左侧：虚拟人物舞台 ======== -->
+  <div class="left">
+
+    <div class="stage" id="stageWrap">
+      <!-- 光环 -->
+      <div class="glow-ring" id="glowRing"></div>
+
+      <!-- CSS 虚拟人物 -->
+      <div class="avatar" id="avatarChar">
+        <!-- 头发 -->
+        <div class="av-hair"></div>
+        <!-- 脸 -->
+        <div class="av-face">
+          <div class="av-brow av-brow-l"></div>
+          <div class="av-brow av-brow-r"></div>
+          <div class="av-eye av-eye-l"><div class="av-pupil"></div></div>
+          <div class="av-eye av-eye-r"><div class="av-pupil"></div></div>
+          <div class="av-nose"></div>
+          <div class="av-mouth-wrap"><div class="av-mouth" id="avMouth"></div></div>
+          <div class="av-cheek av-cheek-l"></div>
+          <div class="av-cheek av-cheek-r"></div>
+        </div>
+        <!-- 身体 -->
+        <div class="av-body">
+          <div class="av-collar"></div>
+          <div class="av-uniform"><div class="av-badge">导览</div></div>
+        </div>
+      </div>
+
+      <!-- 气泡 -->
+      <div class="bubble-box" id="bubbleBox">您好！<br>点击"开始导览"吧~</div>
+
+      <!-- 摄像头小窗 -->
+      <div class="cam-box" id="camBox">
+        <div class="cam-head">
+          <span class="cam-dot" id="camDot"></span>
+          <span class="cam-label">实时交互</span>
+          <span class="cam-state" id="camState">待机</span>
+        </div>
+        <div class="cam-area">
+          <video id="camVid" autoplay playsinline muted></video>
+          <div class="cam-empty" id="camEmpty"><span>📷</span>点击下方开启摄像头</div>
+          <div class="cam-alert" id="camAlert"><span id="camAlertIco"></span><span id="camAlertTxt"></span></div>
+        </div>
+        <!-- 手势触发按钮 -->
+        <div class="cam-gestures">
+          <button class="ges-btn" data-g="wave">👋<span>挥手</span></button>
+          <button class="ges-btn" data-g="thumbs_up">👍<span>点赞</span></button>
+          <button class="ges-btn" data-g="point">☝️<span>指向</span></button>
+          <button class="ges-btn" data-g="smile">😊<span>微笑</span></button>
+        </div>
+        <div class="cam-ctls">
+          <button id="btnCamOn">📷 开启</button>
+          <button id="btnCamOff">⏹ 停止</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 字幕 -->
+    <div class="sub-bar">
+      <span>💬</span>
+      <span id="subTxt">准备就绪，等待您的指令...</span>
+    </div>
+
+  </div>
+
+  <!-- ======== 右侧：对话交互 ======== -->
+  <div class="right">
+
+    <div class="chat">
+      <div class="chat-head">
+        <span>对话记录</span>
+        <button id="btnClear" class="btn-icon">🗑</button>
+      </div>
+      <div class="chat-list" id="chatList">
+        <div class="chat-welcome">
+          <div class="cw-emoji">🎯</div>
+          <div class="cw-text">欢迎使用文旅AI智能导览</div>
+          <div class="cw-sub">支持文本 · 语音 · 图片 · 视频 多模态交互</div>
+        </div>
+      </div>
+      <div class="chat-wait" id="chatWait"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="input-area">
+      <div class="ia-row">
+        <textarea id="txtInput" placeholder="输入问题，如：请介绍这里的历史文化..." rows="2"></textarea>
+        <button id="btnSend">➤</button>
+      </div>
+      <div class="ia-btns">
+        <button id="btnMic" class="ia-btn">🎤 语音</button>
+        <label class="ia-btn" for="fileImg">🖼 图片</label><input id="fileImg" type="file" accept="image/*" hidden>
+        <label class="ia-btn" for="fileVid">🎬 视频</label><input id="fileVid" type="file" accept="video/*" hidden>
+      </div>
+    </div>
+
+    <div class="spots">
+      <div class="spots-head">📍 推荐景点</div>
+      <div class="spots-list" id="spotsList"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<audio id="ttsAudio" hidden></audio>
+<canvas id="camCanvas" hidden></canvas>
+<script src="/static/app.js?v=30"></script>
+</body>
+</html>

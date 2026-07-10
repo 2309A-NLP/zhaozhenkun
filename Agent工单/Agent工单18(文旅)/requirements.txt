@@ -1,0 +1,15 @@
+# 工单18 Python依赖 — 文旅智能导览与互动体验
+flask==3.0.3
+flask-socketio==5.3.6
+requests==2.32.3
+python-dotenv==1.0.1
+pytesseract==0.3.13
+opencv-python==4.10.0.84
+Pillow==11.3.0
+SpeechRecognition==3.10.4
+openai-whisper==20250625
+edge-tts==6.1.9
+paddlepaddle==3.0.0
+paddleocr==2.9.0
+ultralytics>=8.4.0
+mediapipe>=0.10.35
