@@ -1,0 +1,6 @@
+flask>=3.0.0
+numpy>=1.26.0
+requests>=2.32.0
+pillow>=10.0.0
+pytesseract>=0.3.10
+faiss-cpu>=1.8.0

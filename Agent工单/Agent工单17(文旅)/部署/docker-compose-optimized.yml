@@ -1,0 +1,154 @@
+# RAGFlow - 优化后Docker Compose配置（开发环境，资源受限）
+
+# 使用方法：
+# 1. 将此文件内容合并到 docker/docker-compose.yml
+# 2. 调整环境变量后启动: docker compose up -d
+
+version: "3.9"
+
+services:
+  # ============================================================
+  # API Server - 优化配置
+  # ============================================================
+  ragflow-server:
+    image: infiniflow/ragflow:nightly
+    container_name: ragflow-server
+    restart: unless-stopped
+    ports:
+      - "9380:9380"
+    environment:
+      - PYTHONPATH=/ragflow
+      - WS=2
+      # === 资源限制参数（已调小） ===
+      - MAX_CONCURRENT_CHAT=10       # 最大并发聊天请求数
+    # === 容器资源限制（适合本地开发） ===
+    deploy:
+      resources:
+        limits:
+          cpus: "4"                  # 最大4核（调小）
+          memory: "8g"               # 最大8GB内存（调小）
+        reservations:
+          cpus: "2"
+          memory: "4g"
+    # === JVM/内存参数 ===
+    mem_limit: "8g"
+    memswap_limit: "10g"
+    volumes:
+      - ./ragflow-logs:/ragflow/logs
+      - ./service_conf.yaml:/ragflow/conf/service_conf.yaml
+    depends_on:
+      - mysql
+      - redis
+      - es01
+    networks:
+      - ragflow-net
+
+  # ============================================================
+  # Task Executor - 优化配置
+  # ============================================================
+  task-executor:
+    image: infiniflow/ragflow:nightly
+    container_name: ragflow-task-executor
+    restart: unless-stopped
+    environment:
+      - PYTHONPATH=/ragflow
+      - WS=2                       # Worker数量（调小，原始可能更多）
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "8g"
+        reservations:
+          cpus: "2"
+          memory: "4g"
+    mem_limit: "8g"
+    volumes:
+      - ./ragflow-logs:/ragflow/logs
+      - ./service_conf.yaml:/ragflow/conf/service_conf.yaml
+    command: ["python", "rag/svr/task_executor.py"]
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - ragflow-net
+
+  # ============================================================
+  # MySQL - 优化连接池
+  # ============================================================
+  mysql:
+    image: mysql:8.0
+    container_name: ragflow-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=infini_rag_flow
+      - MYSQL_DATABASE=rag_flow
+    # === 调小的MySQL配置 ===
+    command: >
+      --max_connections=50
+      --innodb_buffer_pool_size=512M
+      --innodb_log_file_size=128M
+      --max_allowed_packet=64M
+      --thread_cache_size=4
+      --table_open_cache=256
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: "2g"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - ragflow-net
+
+  # ============================================================
+  # Redis - 优化配置
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ragflow-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: "1g"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ragflow-net
+
+  # ============================================================
+  # Elasticsearch - 优化配置（单节点开发模式）
+  # ============================================================
+  es01:
+    image: elasticsearch:8.11.0
+    container_name: ragflow-es01
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"  # 调小JVM堆
+      - xpack.security.enabled=false
+      - cluster.routing.allocation.disk.threshold_enabled=false
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: "3g"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - ragflow-net
+
+networks:
+  ragflow-net:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  redis-data:
+  es-data:

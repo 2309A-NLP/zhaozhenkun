@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>多模态文旅知识检索与生成</title>
+  <style>
+    body{font-family:Arial,"Microsoft YaHei",sans-serif;background:#f6f8fb;margin:0;padding:24px;color:#1f2937}
+    .wrap{max-width:1100px;margin:0 auto}
+    .card{background:#fff;border-radius:16px;padding:20px;margin-bottom:18px;box-shadow:0 6px 20px rgba(0,0,0,.06)}
+    h1,h2{margin:0 0 12px}
+    textarea,input,select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;box-sizing:border-box}
+    textarea{min-height:120px;resize:vertical}
+    button{background:#2563eb;color:#fff;border:none;border-radius:10px;padding:12px 18px;font-size:14px;cursor:pointer}
+    button:hover{background:#1d4ed8}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .muted{color:#6b7280;font-size:13px}
+    .result{white-space:pre-wrap;line-height:1.7;background:#f9fafb;border-radius:10px;padding:14px;border:1px solid #e5e7eb}
+    .tag{display:inline-block;background:#eef2ff;color:#4338ca;padding:4px 10px;border-radius:999px;font-size:12px;margin-right:6px;margin-bottom:6px}
+    .item{padding:12px;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;background:#fff}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media (max-width:900px){.row,.grid3{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>多模态文旅知识检索与生成系统</h1>
+    <div class="muted">工单编号：人工智能CV-AIGC-17 ｜ 支持文本检索、图片关键词检索、以文生讲解词、多语言输出演示</div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2>1. 文本/语音转文本输入</h2>
+      <textarea id="query" placeholder="例如：我想了解北京故宫的历史和导览路线"></textarea>
+      <div style="height:12px"></div>
+      <div class="grid3">
+        <div>
+          <label>输入类型</label>
+          <select id="inputType">
+            <option value="text">文本</option>
+            <option value="voice">语音转文本</option>
+            <option value="image">图片描述/OCR文本</option>
+          </select>
+        </div>
+        <div>
+          <label>输出语言</label>
+          <select id="language">
+            <option value="zh">中文</option>
+            <option value="en">English</option>
+          </select>
+        </div>
+        <div>
+          <label>输出模式</label>
+          <select id="mode">
+            <option value="guide">导览讲解</option>
+            <option value="history">历史文化解读</option>
+            <option value="story">景点故事</option>
+          </select>
+        </div>
+      </div>
+      <div style="height:12px"></div>
+      <button onclick="runSearch()">开始检索与生成</button>
+    </div>
+
+    <div class="card">
+      <h2>2. 图片/视频线索输入</h2>
+      <input id="imageHints" placeholder="例如：红墙 宫殿 古建筑">
+      <div style="height:12px"></div>
+      <button onclick="runImageSearch()">执行以图搜文/以图搜图演示</button>
+      <div style="height:12px"></div>
+      <div class="muted">这里用“图片关键词/ OCR识别文本 / 视频关键词”模拟多模态特征输入，便于本地快速演示。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. 检索结果</h2>
+    <div id="retrievalResult" class="result">等待检索...</div>
+  </div>
+
+  <div class="card">
+    <h2>4. 多模态关联内容</h2>
+    <div id="multimodalResult" class="result">等待生成...</div>
+  </div>
+</div>
+<script>
+async function runSearch(){
+  const payload={
+    query:document.getElementById('query').value,
+    input_type:document.getElementById('inputType').value,
+    language:document.getElementById('language').value,
+    mode:document.getElementById('mode').value
+  };
+  const res=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json();
+  document.getElementById('retrievalResult').textContent=JSON.stringify(data.retrieval,null,2);
+  document.getElementById('multimodalResult').textContent=JSON.stringify(data.answer,null,2);
+}
+async function runImageSearch(){
+  const payload={hints:document.getElementById('imageHints').value};
+  const res=await fetch('/api/image-search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json();
+  document.getElementById('retrievalResult').textContent=JSON.stringify(data.retrieval,null,2);
+  document.getElementById('multimodalResult').textContent=JSON.stringify(data.answer,null,2);
+}
+</script>
+</body>
+</html>

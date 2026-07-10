@@ -1,0 +1,151 @@
+diff --git a/api/db/db_models.py b/api/db/db_models.py
+index a81b32c22..0fcda4171 100644
+--- a/api/db/db_models.py
++++ b/api/db/db_models.py
+@@ -502,6 +502,8 @@ class BaseDataBase:
+         pool_config = {
+             'max_retries': 5,
+             'retry_delay': 1,
++            'max_connections': 20,
++            'stale_timeout': 300,
+         }
+         database_config.update(pool_config)
+         self.database_connection = PooledDatabase[settings.DATABASE_TYPE.upper()].value(
+diff --git a/api/db/services/dialog_service.py b/api/db/services/dialog_service.py
+index 33f21a717..4529c5e54 100644
+--- a/api/db/services/dialog_service.py
++++ b/api/db/services/dialog_service.py
+@@ -52,6 +52,12 @@ from rag.utils.tavily_conn import Tavily
+ from rag.utils.tts_cache import synthesize_with_cache
+ from common.string_utils import remove_redundant_spaces
+ from common import settings
++from common.resource_cache import (
++    ChatConcurrencyLimiter,
++    LangfuseCache,
++    get_or_create_bundle,
++)
++
+ 
+ def _chunk_kb_id_for_doc(row_dict, kb_ids, doc_id):
+     if len(kb_ids or []) == 1:
+@@ -303,14 +309,14 @@ async def async_chat_solo(dialog, messages, stream=True):
+     else:
+         model_config = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.CHAT)
+ 
+-    chat_mdl = LLMBundle(dialog.tenant_id, model_config)
++    chat_mdl = get_or_create_bundle(dialog.tenant_id, model_config)
+     factory = model_config.get("llm_factory", "") if model_config else ""
+ 
+     prompt_config = dialog.prompt_config
+     tts_mdl = None
+     if prompt_config.get("tts"):
+         default_tts_model = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.TTS)
+-        tts_mdl = LLMBundle(dialog.tenant_id, default_tts_model)
++        tts_mdl = get_or_create_bundle(dialog.tenant_id, default_tts_model)
+     msg = [{"role": m["role"], "content": re.sub(r"##\d+\$\$", "", m["content"])} for m in messages if m["role"] != "system"]
+     if attachments and msg:
+         msg[-1]["content"] += attachments
+@@ -347,7 +353,7 @@ def get_models(dialog):
+     if embedding_list:
+         embd_owner_tenant_id = kbs[0].tenant_id
+         embd_model_config = get_model_config_from_provider_instance(embd_owner_tenant_id, LLMType.EMBEDDING, embedding_list[0])
+-        embd_mdl = LLMBundle(embd_owner_tenant_id, embd_model_config)
++        embd_mdl = get_or_create_bundle(embd_owner_tenant_id, embd_model_config)
+         if not embd_mdl:
+             raise LookupError("Embedding model(%s) not found" % embedding_list[0])
+ 
+@@ -356,15 +362,15 @@ def get_models(dialog):
+     else:
+         chat_model_config = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.CHAT)
+ 
+-    chat_mdl = LLMBundle(dialog.tenant_id, chat_model_config)
++    chat_mdl = get_or_create_bundle(dialog.tenant_id, chat_model_config)
+ 
+     if dialog.rerank_id:
+         rerank_model_config = get_model_config_from_provider_instance(dialog.tenant_id, LLMType.RERANK, dialog.rerank_id)
+-        rerank_mdl = LLMBundle(dialog.tenant_id, rerank_model_config)
++        rerank_mdl = get_or_create_bundle(dialog.tenant_id, rerank_model_config)
+ 
+     if dialog.prompt_config.get("tts"):
+         default_tts_model_config = get_tenant_default_model_by_type(dialog.tenant_id, LLMType.TTS)
+-        tts_mdl = LLMBundle(dialog.tenant_id, default_tts_model_config)
++        tts_mdl = get_or_create_bundle(dialog.tenant_id, default_tts_model_config)
+     return kbs, embd_mdl, rerank_mdl, chat_mdl, tts_mdl
+ 
+ 
+@@ -541,6 +547,7 @@ def repair_bad_citation_formats(answer: str, kbinfos: dict, idx: set):
+ async def async_chat(dialog, messages, stream=True, **kwargs):
+     logging.debug("Begin async_chat")
+     assert messages[-1]["role"] == "user", "The last content of this conversation is not from user."
++
+     use_web_search = _should_use_web_search(dialog.prompt_config, kwargs.get("internet"))
+     logging.debug("web_search kb=%s tavily=%s internet=%r enabled=%s", bool(dialog.kb_ids), bool(dialog.prompt_config.get("tavily_api_key")), kwargs.get("internet"), use_web_search)
+     if not dialog.kb_ids and not use_web_search:
+@@ -548,6 +555,10 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
+             yield ans
+         return
+ 
++    # Acquire concurrency slot to prevent resource saturation under load
++    limiter = ChatConcurrencyLimiter.get_instance(max_concurrent=10)
++    await limiter.acquire()
++
+     chat_start_ts = timer()
+     if dialog.llm_id:
+         llm_types = get_model_type_by_name(dialog.tenant_id, dialog.llm_id)
+@@ -568,15 +579,20 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
+     trace_context = {}
+     langfuse_keys = TenantLangfuseService.filter_by_tenant(tenant_id=dialog.tenant_id)
+     if langfuse_keys:
+-        langfuse = Langfuse(public_key=langfuse_keys.public_key, secret_key=langfuse_keys.secret_key, host=langfuse_keys.host)
+-        try:
+-            if langfuse.auth_check():
+-                langfuse_tracer = langfuse
+-                trace_id = langfuse_tracer.create_trace_id()
+-                trace_context = {"trace_id": trace_id}
+-        except Exception:
+-            # Skip langfuse tracing if connection fails
+-            pass
++        langfuse_cache = LangfuseCache.get_instance()
++        langfuse_tracer = langfuse_cache.get(dialog.tenant_id)
++        if langfuse_tracer is None:
++            langfuse = Langfuse(public_key=langfuse_keys.public_key, secret_key=langfuse_keys.secret_key, host=langfuse_keys.host)
++            try:
++                if langfuse.auth_check():
++                    langfuse_tracer = langfuse
++                    langfuse_cache.put(dialog.tenant_id, langfuse_tracer)
++            except Exception:
++                # Skip langfuse tracing if connection fails
++                pass
++        if langfuse_tracer is not None:
++            trace_id = langfuse_tracer.create_trace_id()
++            trace_context = {"trace_id": trace_id}
+ 
+     check_langfuse_tracer_ts = timer()
+     kbs, embd_mdl, rerank_mdl, chat_mdl, tts_mdl = get_models(dialog)
+@@ -621,6 +637,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
+                     )
+                 _enrich_chunks_with_document_metadata(ans["reference"]["chunks"], metadata_fields)
+             yield ans
++            limiter.release()
+             return
+         else:
+             logging.debug("SQL failed or returned no results, falling back to vector search")
+@@ -756,6 +773,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
+     if not knowledges and prompt_config.get("empty_response"):
+         empty_res = prompt_config["empty_response"]
+         yield {"answer": empty_res, "reference": kbinfos, "prompt": "\n\n### Query:\n%s" % " ".join(questions), "audio_binary": tts(tts_mdl, empty_res), "final": True}
++        limiter.release()
+         return
+ 
+     kwargs["knowledge"] = "\n------\n" + "\n\n------\n\n".join(knowledges)
+@@ -908,6 +926,7 @@ async def async_chat(dialog, messages, stream=True, **kwargs):
+         res["audio_binary"] = tts(tts_mdl, answer)
+         yield res
+ 
++    limiter.release()
+     return
+ 
+ 
+
+# New file: common/resource_cache.py
+# Copy from patches_common_resource_cache.py to ragflow/common/resource_cache.py
