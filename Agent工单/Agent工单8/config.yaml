@@ -1,0 +1,110 @@
+# ============================================================
+# 实时数字人交互系统 - 配置文件
+# 工单编号: 人工智能NLP-Agent数字人项目-实时数字人交互任务
+# API Key 通过环境变量 DEEPSEEK_API_KEY 设置
+# ============================================================
+
+gpu:
+  device: "cuda:0"
+  use_fp16: true
+  max_vram_mb: 7500
+
+pipeline:
+  audio_sample_rate: 16000
+  audio_chunk_ms: 20
+  mel_n_mels: 80
+  mel_hop_length: 200
+  stride_left_size: 6
+  stride_right_size: 8
+  batch_size: 16
+  video_fps: 25
+  video_width: 1280
+  video_height: 720
+  face_resolution: 96
+
+asr:
+  model: "tiny"
+  language: "zh"
+  device: "cpu"
+  sample_rate: 16000
+
+llm:
+  provider: "deepseek"              # deepseek / ollama / vllm / openai
+  api_base: "https://api.deepseek.com/v1"
+  api_key: ""  # ⚠️ 请通过环境变量 DEEPSEEK_API_KEY 设置，切勿将Key写入此文件
+  model: "deepseek-v4-pro"
+  max_tokens: 2048
+  temperature: 0.7
+  streaming: true
+  system_prompt: "你是一个友好的AI数字人助手，名字叫小美。请用自然口语化方式回答，简洁明了。"
+  # 本地LLM配置 (provider=ollama 或 vllm 时生效)
+  ollama_model: "qwen2.5:7b"
+  vllm_url: "http://localhost:8000/v1"
+  vllm_model: "qwen2.5-7b-instruct"
+  openai_model: "gpt-4o-mini"
+
+tts:
+  default_backend: "edge"        # edge / cosyvoice / cosyvoice_local
+  edge:
+    voice: "zh-CN-XiaoxiaoNeural"
+    rate: "+0%"
+    pitch: "+0Hz"
+  # CosyVoice HTTP API 配置 (backend: cosyvoice)
+  cosyvoice_url: "http://localhost:5001/v1/tts"
+  # CosyVoice 本地配置 (backend: cosyvoice_local)
+  cosyvoice_model_dir: "models/cosyvoice"
+  reference_audio: ""
+  reference_text: ""
+
+barge_in:
+  enabled: true
+  energy_threshold: 0.02
+  silence_duration_ms: 300
+  trigger_duration_ms: 200
+  fade_out_ms: 100
+
+lipsync:
+  model: "simple"             # sadtalker / wav2lip / musetalk / ernerf / simple(实时唇形,推荐)
+  checkpoint: ""                  # Wav2Lip权重路径(仅model=wav2lip时使用)
+  face_detector: "sfd"
+  img_size: 96
+  sadtalker_root: "/home/zzy/SadTalker_modelscope"  # SadTalker模型根目录(已确认存在)
+  # MuseTalk 配置 (model: musetalk 时生效, 权重未就绪时自动回退simple)
+  musetalk_checkpoint: "models/musetalk/pytorch_model.bin"
+  # ER-NeRF 配置 (model: ernerf 时生效, 权重未就绪时自动回退simple)
+  ernerf_checkpoint: "models/ernerf/model.ckpt"
+
+video:
+  output_width: 1280
+  output_height: 720
+  fps: 25
+  codec: "h264"
+  bitrate: "4000k"
+  background: ""                       # 全身背景图/视频路径（空则使用黑色背景）
+
+idle_video:
+  enabled: true
+  trigger_after_silence_s: 2.0
+  crossfade_frames: 12
+
+webrtc:
+  stun_server: "stun:stun.l.google.com:19302"
+
+rtmp:
+  encoder: "h264_nvenc"
+  preset: "p4"
+  bitrate: "4000k"
+  fps: 25
+
+server:
+  host: "0.0.0.0"
+  port: 8002
+  cors_origins: ["*"]
+
+sessions:
+  max_concurrent: 3
+  timeout_s: 300
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

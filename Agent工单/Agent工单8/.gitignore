@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Environment variables
+.env
+.env.local
+
+# Model weights (large files, use download script)
+models/**/*.pth
+models/**/*.ckpt
+models/**/*.bin
+models/**/*.onnx
+models/**/*.safetensors
+models/**/*.pb
+models/**/*.pbtxt
+
+# Output files
+*.mp4
+*.wav
+*.mp3
+*.yuv
+*.pcm
+output/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# API Key file (local only, never commit)
+api_key.txt

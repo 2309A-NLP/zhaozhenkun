@@ -1,0 +1,330 @@
+/* ============================================================
+   static/css/style.css - 实时数字人交互系统 样式
+   工单编号: 人工智能NLP-Agent数字人项目-实时数字人交互任务
+   ============================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+}
+
+/* ===== 视频面板 ===== */
+#video-panel {
+    flex: 3;
+    position: relative;
+    overflow: hidden;
+    background: url('/static/avatar.jpg') center/cover no-repeat;
+}
+
+#video-stream {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 2;
+}
+
+#person-layer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: 0;
+    background: url('/static/person.png') center/cover no-repeat;
+    z-index: 2;
+    transform-origin: center bottom;
+    transition: filter 0.3s;
+}
+
+/* 状态动画 */
+#person-layer.speaking {
+    animation: personTalk 0.35s ease-in-out infinite;
+}
+#person-layer.listening {
+    animation: personBreathe 2s ease-in-out infinite;
+}
+#person-layer.thinking {
+    animation: personSway 1.5s ease-in-out infinite;
+}
+
+@keyframes personTalk {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-2px) scale(1.005); }
+}
+@keyframes personBreathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.008); }
+}
+@keyframes personSway {
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-1deg); }
+    75%      { transform: rotate(1deg); }
+}
+
+#state-label {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    font-size: 16px;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+
+#status-bar {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    background: rgba(0,0,0,0.6);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+
+.dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+}
+.dot.online  { background: #4f4; }
+.dot.offline { background: #f44; }
+
+/* 音频可视化 */
+#audio-visualizer {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 4;
+    display: none;
+}
+#audio-visualizer.active {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 40px;
+}
+.visualizer-bar {
+    width: 4px;
+    background: #e94560;
+    border-radius: 2px;
+    transition: height 0.05s ease;
+}
+
+/* ===== 控制面板 ===== */
+#control-panel {
+    flex: 1;
+    min-width: 340px;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    background: #16213e;
+    padding: 20px;
+}
+
+h2 {
+    margin-bottom: 4px;
+    color: #e94560;
+    font-size: 20px;
+}
+
+#subtitle {
+    color: #888;
+    font-size: 12px;
+    margin-bottom: 12px;
+}
+
+/* ===== 设置区 ===== */
+#settings-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+#settings-bar select {
+    flex: 1;
+    min-width: 80px;
+    padding: 6px 8px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #0f3460;
+    color: #eee;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+/* ===== 聊天区 ===== */
+#chat-box {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: #0f3460;
+    min-height: 200px;
+}
+
+.msg {
+    margin-bottom: 10px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    max-width: 85%;
+    word-wrap: break-word;
+    line-height: 1.5;
+    animation: msgFadeIn 0.3s ease;
+}
+@keyframes msgFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.msg.user      { background: #533483; margin-left: auto; text-align: right; }
+.msg.assistant { background: #1a1a2e; }
+.msg.system    { background: #333; text-align: center; font-size: 12px; color: #aaa; max-width: 100%; }
+
+/* ===== 输入区 ===== */
+#input-area {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+#text-input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid #533483;
+    border-radius: 20px;
+    background: #0f3460;
+    color: #eee;
+    font-size: 14px;
+    outline: none;
+}
+#text-input:focus {
+    border-color: #e94560;
+}
+#text-input:disabled {
+    opacity: 0.5;
+}
+
+#mic-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid #533483;
+    background: #0f3460;
+    color: #eee;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+#mic-btn:hover {
+    border-color: #e94560;
+}
+#mic-btn.recording {
+    background: #e94560;
+    border-color: #e94560;
+    animation: micPulse 1s ease-in-out infinite;
+}
+@keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.5); }
+    50%      { box-shadow: 0 0 0 12px rgba(233,69,96,0); }
+}
+#mic-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+#send-btn {
+    padding: 10px 20px;
+    background: #e94560;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+#send-btn:hover    { background: #ff6b81; }
+#send-btn:disabled { background: #555; cursor: not-allowed; }
+
+#interrupt-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid #f4a236;
+    background: #0f3460;
+    color: #f4a236;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+#interrupt-btn:hover {
+    background: #f4a236;
+    color: #fff;
+}
+#interrupt-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ===== 性能指标栏 ===== */
+#perf-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: #0a1628;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #aaa;
+    flex-wrap: wrap;
+    align-items: center;
+}
+#perf-bar b {
+    color: #4fc3f7;
+    font-family: 'Courier New', monospace;
+}
+#perf-bar .sla-ok { color: #4f4; margin-left: auto; font-weight: bold; }
+#perf-bar .sla-fail { color: #f44; margin-left: auto; font-weight: bold; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+    #video-panel {
+        flex: none;
+        height: 45vh;
+    }
+    #control-panel {
+        flex: none;
+        min-width: unset;
+        max-width: unset;
+    }
+}

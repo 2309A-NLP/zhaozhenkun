@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实时数字人 — 语音克隆 · 唇形同步</title>
+<style>
+:root{--bg:#0a0e1a;--bg2:#111633;--card:#1a2045;--border:#2a3460;--red:#e94560;--amber:#f4a236;--cyan:#06b6d4;--green:#10b981;--tx1:#eef0ff;--tx2:#8899b9;--tx3:#556888}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--tx1);height:100vh;display:flex;overflow:hidden}
+
+/* === Video Panel (Left 60%) === */
+#video-panel{flex:3;position:relative;background:#000;display:flex;align-items:center;justify-content:center;min-width:0}
+#video-panel video,#video-panel img{width:100%;height:100%;object-fit:cover}
+#dh-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--tx3);pointer-events:none;z-index:2}
+#dh-placeholder .icon{font-size:64px;opacity:.4}
+#dh-placeholder .text{font-size:13px;line-height:1.6;text-align:center}
+#avatar-upload-btn:hover{filter:brightness(1.15)}
+#state-bar{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(0,0,0,.7);padding:6px 16px;border-radius:20px;font-size:13px;display:flex;align-items:center;gap:8px}
+#state-dot{width:8px;height:8px;border-radius:50%}
+#state-dot.idle{background:var(--tx3)}
+#state-dot.listening{background:var(--cyan);animation:pulse 1s infinite}
+#state-dot.speaking{background:var(--green);box-shadow:0 0 10px rgba(16,185,129,.6)}
+#state-dot.thinking{background:var(--amber)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+#vis-bars{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:5;display:none;align-items:flex-end;gap:3px;height:40px}
+#vis-bars.active{display:flex}
+.vis-bar{width:4px;background:var(--red);border-radius:2px;transition:height .05s}
+
+/* === Control Panel (Right 40%) === */
+#control-panel{flex:1.2;min-width:380px;max-width:480px;display:flex;flex-direction:column;background:var(--bg2);border-left:1px solid var(--border)}
+
+/* Voice Clone Section */
+#clone-section{background:var(--card);margin:14px 14px 0;padding:12px;border-radius:10px;border:1px solid var(--border)}
+#clone-section h3{font-size:13px;color:var(--cyan);margin-bottom:8px}
+#clone-section p{font-size:10px;color:var(--tx3);margin-bottom:8px;line-height:1.4}
+.clone-btns{display:flex;gap:8px}
+.clone-btn{flex:1;padding:8px;border-radius:8px;border:2px dashed var(--border);background:transparent;color:var(--tx2);cursor:pointer;font-size:11px;text-align:center;transition:all .2s}
+.clone-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.clone-btn.ok{border-color:var(--green);border-style:solid;color:var(--green)}
+#clone-status{font-size:10px;color:var(--tx3);margin-top:6px;text-align:center;min-height:16px}
+
+/* Chat Area */
+#chat-box{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-height:0}
+#chat-box::-webkit-scrollbar{width:3px}
+#chat-box::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.msg{padding:8px 12px;border-radius:10px;max-width:85%;word-wrap:break-word;line-height:1.5;font-size:12px;animation:fadeIn .25s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{background:var(--card);align-self:flex-end;border:1px solid var(--border)}
+.msg.assistant{background:#0f1840;align-self:flex-start;border-left:3px solid var(--cyan)}
+.msg.system{background:transparent;text-align:center;font-size:10px;color:var(--tx3);max-width:100%}
+
+/* Perf Bar */
+#perf-bar{display:flex;gap:8px;padding:8px 14px;background:rgba(0,0,0,.3);font-size:11px;color:var(--tx3);flex-wrap:wrap;align-items:center}
+#perf-bar b{color:var(--cyan);font-family:monospace}
+#perf-bar .sla-ok{color:var(--green);margin-left:auto;font-weight:bold}
+#perf-bar .sla-fail{color:var(--red);margin-left:auto;font-weight:bold}
+
+/* Settings */
+#settings-bar{display:flex;gap:6px;padding:8px 14px}
+#settings-bar select{flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--tx1);font-size:11px;cursor:pointer}
+
+/* Input */
+#input-area{display:flex;gap:6px;padding:10px 14px 14px;align-items:center}
+#text-input{flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:20px;background:var(--card);color:var(--tx1);font-size:13px;outline:none}
+#text-input:focus{border-color:var(--red)}
+#text-input:disabled{opacity:.4}
+#mic-btn{width:40px;height:40px;border-radius:50%;border:2px solid var(--border);background:var(--card);color:var(--tx1);font-size:18px;cursor:pointer;flex-shrink:0;transition:all .2s;display:flex;align-items:center;justify-content:center}
+#mic-btn.rec{background:var(--red);border-color:var(--red);animation:micPulse 1s infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(233,69,96,.5)}50%{box-shadow:0 0 0 12px rgba(233,69,96,0)}}
+#send-btn{padding:10px 18px;background:var(--red);color:#fff;border:none;border-radius:20px;cursor:pointer;font-size:13px;font-weight:bold}
+#send-btn:hover{background:#ff6b81}
+#send-btn:disabled{background:#555;cursor:not-allowed}
+#interrupt-btn{width:40px;height:40px;border-radius:50%;border:2px solid var(--amber);background:var(--card);color:var(--amber);font-size:18px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+#interrupt-btn:hover{background:var(--amber);color:#fff}
+#interrupt-btn:disabled{opacity:.4}
+
+@media(max-width:800px){body{flex-direction:column}#video-panel{flex:none;height:40vh}#control-panel{flex:none;min-width:unset;max-width:unset}}
+</style>
+</head>
+<body>
+
+<!-- Video Panel: REAL lip-sync video (SadTalker) -->
+<div id="video-panel">
+  <video id="dh-video" loop autoplay playsinline style="display:none"></video>
+  <img id="dh-mjpeg" style="display:none" alt="MJPEG Stream">
+  <div id="dh-placeholder">
+    <span class="icon">👤</span>
+    <span class="text">点击下方按钮上传人物照片<br>数字人将生成唇形同步视频<br><small style="color:var(--tx3)">SadTalker 3DMM + 面部渲染</small></span>
+  </div>
+  <!-- Upload button overlay -->
+  <label id="avatar-upload-btn" style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);z-index:10;padding:10px 24px;border-radius:24px;background:var(--red);color:#fff;font-size:13px;font-weight:bold;cursor:pointer;border:none;transition:all .2s">
+    📷 上传人物照片
+    <input type="file" accept="image/*" onchange="uploadAvatar(event)" style="display:none">
+  </label>
+  <div id="state-bar">
+    <span id="state-dot" class="idle"></span>
+    <span id="state-text">请上传人物照片</span>
+  </div>
+  <div id="vis-bars"></div>
+</div>
+
+<!-- Control Panel -->
+<div id="control-panel">
+
+  <!-- Voice Clone (CosyVoice) -->
+  <div id="clone-section">
+    <h3>🎙️ 语音克隆 · 自定义 TTS</h3>
+    <p>上传参考音频，克隆你的口音和音色。数字人将用你的声音回复。<br>引擎: CosyVoice / EdgeTTS (自动回退)</p>
+    <div class="clone-btns">
+      <label class="clone-btn" id="clone-upload-btn">
+        📤 上传音频
+        <input type="file" accept="audio/*" onchange="cloneUpload(event)" style="display:none">
+      </label>
+      <button class="clone-btn" id="clone-record-btn" onclick="toggleCloneRecord()">🎤 录制样本</button>
+    </div>
+    <div id="clone-status">支持 WAV/MP3，3-10秒最佳</div>
+  </div>
+
+  <!-- Settings -->
+  <div id="settings-bar">
+    <select id="lang-select" onchange="onLangChange(this.value)"><option value="zh-CN">中文</option><option value="en-US">English</option><option value="ja-JP">日本語</option></select>
+    <select id="scene-select" onchange="onSceneChange(this.value)"><option value="default">默认助手</option><option value="customer_service">客服模式</option><option value="teacher">教学模式</option></select>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat-box"><div class="msg system">正在连接服务...</div></div>
+
+  <!-- Perf -->
+  <div id="perf-bar">
+    <span>延迟: <b id="p-lat">--</b>ms</span>
+    <span>帧率: <b id="p-fps">--</b>fps</span>
+    <span>TTS: <b id="p-tts">--</b>ms</span>
+    <span id="p-sla" class="sla-ok">SLA ✓</span>
+  </div>
+
+  <!-- Input -->
+  <div id="input-area">
+    <button id="mic-btn" disabled title="语音输入 (Ctrl+M)">🎤</button>
+    <input id="text-input" placeholder="输入消息 Enter发送..." disabled>
+    <button id="send-btn" onclick="sendMsg()" disabled>发送</button>
+    <button id="interrupt-btn" onclick="interruptSpeaking()" disabled title="打断">⏹</button>
+  </div>
+</div>
+
+<script>
+// ========== State ==========
+let sessionId=null,ws=null,audioEl=null,mediaRecorder=null,audioChunks=[],isRecording=false;
+let audioCtx=null,analyser=null,visAnim=null,perfTimer=null;
+let currentVoiceId=null;
+
+// ========== Init ==========
+async function init(){
+  // Check existing avatar
+  try{
+    let ar=await fetch('/api/v1/avatar/current');
+    let ad=await ar.json();
+    if(ad.has_avatar&&ad.avatar_url){
+      showAvatar(ad.avatar_url);
+    }
+  }catch(e){}
+  try{
+    let r=await fetch('/api/v1/session/create',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    let d=await r.json();sessionId=d.session_id;
+    addMsg('system','会话: '+sessionId.substring(0,8)+'...');
+
+    // Start MJPEG stream — REAL lip-sync video
+    let mj=document.getElementById('dh-mjpeg');
+    mj.src='/session/'+sessionId+'/video_stream';
+    mj.style.display='block';
+    document.getElementById('dh-placeholder').style.display='none';
+    updateState('idle','在线等待中...');
+
+    connectWS();
+  }catch(e){addMsg('system','连接失败: '+e.message);updateState('idle','连接失败');}
+}
+
+// ========== Avatar Upload ==========
+function showAvatar(url){
+  document.getElementById('dh-placeholder').style.display='none';
+  document.getElementById('dh-mjpeg').src=url+'?t='+Date.now();
+  document.getElementById('dh-mjpeg').style.display='block';
+  document.getElementById('avatar-upload-btn').style.opacity='.4';
+  updateState('idle','人物照片已就绪');
+}
+function uploadAvatar(e){
+  let f=e.target.files[0];if(!f)return;
+  let btn=document.getElementById('avatar-upload-btn');
+  btn.textContent='⏳ 上传中...';
+  f.arrayBuffer().then(buf=>{
+    fetch('/api/v1/avatar/upload',{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:new Uint8Array(buf)})
+    .then(r=>r.json()).then(d=>{
+      if(d.status==='ok'){showAvatar(d.avatar_url);btn.textContent='📷 更换照片'}
+      else{btn.textContent='📷 上传失败，重试'}
+    });
+  });
+}
+function connectWS(){
+  let proto=location.protocol==='https:'?'wss:':'ws:';
+  ws=new WebSocket(proto+'//'+location.host+'/ws/'+sessionId);
+  ws.onopen=()=>{enableInput(true);addMsg('system','已连接');startPerfPoll()};
+  ws.onmessage=(e)=>{
+    try{
+      let m=JSON.parse(e.data);
+      if(m.type==='llm_response'&&m.text){addMsg('assistant',m.text);setTimeout(playAudio,200);setTimeout(pollMetrics,400)}
+    }catch(err){}
+  };
+  ws.onclose=()=>{enableInput(false);addMsg('system','断开，刷新重连');stopPerfPoll()};
+  ws.onerror=()=>{};
+}
+
+// ========== Voice Clone ==========
+function cloneUpload(e){
+  let f=e.target.files[0];if(!f)return;
+  let s=document.getElementById('clone-status');s.textContent='⏳ 上传注册中...';
+  let vid='v_'+Date.now();
+  f.arrayBuffer().then(buf=>{
+    fetch('/api/v1/voice/clone?voice_name='+encodeURIComponent(vid),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:new Uint8Array(buf)}).then(r=>r.json()).then(d=>{
+      if(d.status==='processing'||d.status==='registered'){currentVoiceId=d.voice_id||vid;s.innerHTML='✅ 已克隆: <b>'+(d.voice_id||vid)+'</b>';document.getElementById('clone-upload-btn').classList.add('ok')}
+      else{s.textContent='⚠️ '+d.message}
+    }).catch(()=>{s.textContent='❌ 上传失败'});
+  });
+}
+let cloneRec=null,cloneRecChunks=[],cloneRecOn=false;
+function toggleCloneRecord(){
+  let btn=document.getElementById('clone-record-btn');
+  if(cloneRecOn){stopCloneRecord();return}
+  if(!navigator.mediaDevices){alert('不支持麦克风');return}
+  navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1}}).then(st=>{
+    cloneRec=new MediaRecorder(st,{mimeType:MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm'});
+    cloneRecChunks=[];cloneRecOn=true;
+    cloneRec.ondataavailable=e=>{if(e.data.size>0)cloneRecChunks.push(e.data)};
+    cloneRec.onstop=()=>{
+      let blob=new Blob(cloneRecChunks,{type:'audio/webm'});
+      let vid='v_'+Date.now();
+      blob.arrayBuffer().then(buf=>{
+        document.getElementById('clone-status').textContent='⏳ 注册中...';
+        fetch('/api/v1/voice/clone?voice_name='+encodeURIComponent(vid),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:new Uint8Array(buf)}).then(r=>r.json()).then(d=>{
+          if(d.status==='processing'||d.status==='registered'){currentVoiceId=d.voice_id||vid;document.getElementById('clone-status').innerHTML='✅ 录制完成: <b>'+(d.voice_id||vid)+'</b>';document.getElementById('clone-upload-btn').classList.add('ok')}
+        });
+      });
+      st.getTracks().forEach(t=>t.stop());
+    };
+    cloneRec.start();btn.textContent='⏹ 停止';btn.style.borderColor='var(--red)';btn.style.color='var(--red)';
+  }).catch(e=>{alert('麦克风: '+e.message)});
+}
+function stopCloneRecord(){
+  if(cloneRec&&cloneRec.state!=='inactive')cloneRec.stop();
+  cloneRecOn=false;let btn=document.getElementById('clone-record-btn');
+  btn.textContent='🎤 录制样本';btn.style.borderColor='';btn.style.color='';
+}
+
+// ========== Text ==========
+async function sendMsg(){
+  let inp=document.getElementById('text-input'),txt=inp.value.trim();
+  if(!txt||!sessionId)return;addMsg('user',txt);inp.value='';disableInput(true);updateState('thinking','思考中...');
+  try{
+    let r=await fetch('/api/v1/session/'+sessionId+'/text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:txt})});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    let d=await r.json();
+    if(d.response_text){addMsg('assistant',d.response_text);setTimeout(playAudio,200)}
+  }catch(e){addMsg('system','发送失败: '+e.message)}
+  disableInput(false);updateState('idle','在线等待中...');
+}
+
+// ========== Mic ==========
+async function toggleMic(){if(isRecording){stopRecord()}else{await startRecord()}}
+async function startRecord(){
+  if(!sessionId){addMsg('system','等待会话连接...');return}
+  try{
+    let st=await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000,channelCount:1,echoCancellation:true,noiseSuppression:true}});
+    initVisualizer(st);
+    let mt=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+    mediaRecorder=new MediaRecorder(st,{mimeType:mt});audioChunks=[];
+    mediaRecorder.ondataavailable=e=>{if(e.data.size>0)audioChunks.push(e.data)};
+    mediaRecorder.onstop=async()=>{st.getTracks().forEach(t=>t.stop());stopVisualizer();if(audioChunks.length>0)await sendAudio(new Blob(audioChunks,{type:mt}))};
+    mediaRecorder.start(250);isRecording=true;
+    document.getElementById('mic-btn').classList.add('rec');document.getElementById('mic-btn').textContent='⏹';
+    updateState('listening','正在聆听...(点击停止)');
+  }catch(e){addMsg('system','麦克风失败: '+e.message)}
+}
+function stopRecord(){
+  if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+  isRecording=false;document.getElementById('mic-btn').classList.remove('rec');document.getElementById('mic-btn').textContent='🎤';
+  updateState('idle','处理中...');
+}
+async function sendAudio(blob){
+  if(!ws||ws.readyState!==WebSocket.OPEN){addMsg('system','未连接');return}
+  addMsg('system','语音已录制 ('+(blob.size/1024).toFixed(1)+'KB)');
+  updateState('thinking','识别中...');
+  let buf=await blob.arrayBuffer();ws.send(buf);ws.send(JSON.stringify({type:'audio_input',format:'webm',size:blob.size}));
+}
+
+// ========== Visualizer ==========
+function initVisualizer(st){
+  try{
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();let src=audioCtx.createMediaStreamSource(st);
+    analyser=audioCtx.createAnalyser();analyser.fftSize=64;analyser.smoothingTimeConstant=0.3;src.connect(analyser);
+    let v=document.getElementById('vis-bars');v.classList.add('active');v.innerHTML='';
+    for(let i=0;i<16;i++){let b=document.createElement('div');b.className='vis-bar';b.style.height='3px';v.appendChild(b)}
+    updateVis();
+  }catch(e){}
+}
+function updateVis(){
+  if(!analyser||!isRecording)return;
+  let bars=document.querySelectorAll('.vis-bar'),data=new Uint8Array(analyser.frequencyBinCount);
+  function draw(){visAnim=requestAnimationFrame(draw);analyser.getByteFrequencyData(data);let step=Math.floor(data.length/bars.length);bars.forEach((b,i)=>{b.style.height=Math.max(3,data[i*step]/255*40)+'px'})}
+  draw();
+}
+function stopVisualizer(){if(visAnim){cancelAnimationFrame(visAnim);visAnim=null}document.getElementById('vis-bars').classList.remove('active');if(audioCtx&&audioCtx.state!=='closed'){audioCtx.close().catch(()=>{});audioCtx=null;analyser=null}}
+
+// ========== Audio ==========
+function playAudio(){
+  if(!sessionId)return;
+  if(!audioEl){audioEl=new Audio();audioEl.preload='auto'}
+  audioEl.src='/api/v1/session/'+sessionId+'/audio?t='+Date.now();
+  audioEl.play().catch(()=>{});
+  audioEl.onplay=()=>updateState('speaking','正在说话...');
+  audioEl.onended=()=>updateState('idle','在线等待中...');
+  audioEl.onerror=()=>updateState('idle','在线等待中...');
+}
+
+// ========== Interrupt ==========
+async function interruptSpeaking(){
+  if(!sessionId)return;
+  try{await fetch('/api/v1/session/'+sessionId+'/interrupt',{method:'POST'});addMsg('system','已中断');updateState('idle','在线等待中...')}catch(e){}
+}
+
+// ========== Settings ==========
+async function onLangChange(lang){
+  if(!sessionId)return;
+  await fetch('/api/v1/session/'+sessionId+'/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({language:lang})});
+  addMsg('system','语言: '+lang);
+}
+async function onSceneChange(scene){
+  if(!sessionId)return;
+  await fetch('/api/v1/session/'+sessionId+'/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenario:scene})});
+  addMsg('system','场景已切换');
+}
+
+// ========== Perf ==========
+async function pollMetrics(){
+  if(!sessionId)return;
+  try{
+    let r=await fetch('/api/v1/session/'+sessionId+'/metrics');if(!r.ok)return;
+    let m=await r.json();
+    document.getElementById('p-lat').textContent=(m.total_latency_ms||0).toFixed(0);
+    document.getElementById('p-fps').textContent=(m.current_fps||0).toFixed(1);
+    document.getElementById('p-tts').textContent=(m.tts_first_audio_ms||0).toFixed(0);
+    let sla=document.getElementById('p-sla'),ok=m.sla_total_ok&&m.sla_tts_ok&&m.sla_audio_ok&&m.sla_fps_ok;
+    sla.textContent=ok?'SLA ✓':'SLA ✗';sla.className=ok?'sla-ok':'sla-fail';
+  }catch(e){}
+}
+function startPerfPoll(){if(perfTimer)clearInterval(perfTimer);perfTimer=setInterval(pollMetrics,2000);pollMetrics()}
+function stopPerfPoll(){if(perfTimer){clearInterval(perfTimer);perfTimer=null}}
+
+// ========== UI ==========
+function updateState(st,txt){let d=document.getElementById('state-dot'),t=document.getElementById('state-text');d.className=st;t.textContent=txt}
+function addMsg(role,txt){let b=document.getElementById('chat-box'),d=document.createElement('div');d.className='msg '+role;d.textContent=txt;b.appendChild(d);b.scrollTop=b.scrollHeight}
+function enableInput(on){['text-input','send-btn','mic-btn','interrupt-btn'].forEach(id=>document.getElementById(id).disabled=!on)}
+function disableInput(on){['text-input','send-btn','mic-btn','interrupt-btn'].forEach(id=>document.getElementById(id).disabled=on)}
+
+// ========== Events ==========
+document.getElementById('text-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg()}});
+document.getElementById('mic-btn').addEventListener('click',toggleMic);
+document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.key==='m'){e.preventDefault();toggleMic()}});
+window.addEventListener('load',init);
+window.addEventListener('beforeunload',stopPerfPoll);
+</script>
+</body>
+</html>
