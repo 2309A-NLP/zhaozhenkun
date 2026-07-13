@@ -1,0 +1,7 @@
+# 该文件用于忽略本地环境、缓存与运行期数据。
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+optimization/session_memory.json

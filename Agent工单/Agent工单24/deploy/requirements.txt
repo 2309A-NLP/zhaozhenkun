@@ -1,0 +1,5 @@
+# 该文件用于固定项目运行所需的 Python 依赖。
+fastapi==0.116.1
+uvicorn==0.35.0
+requests==2.32.4
+pydantic==2.11.7
