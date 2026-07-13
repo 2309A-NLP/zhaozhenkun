@@ -1,0 +1,6 @@
+部署/.env.local
+研发/uploads/
+研发/runtime/
+研发/data/reviews_cache.json
+__pycache__/
+.pytest_cache/

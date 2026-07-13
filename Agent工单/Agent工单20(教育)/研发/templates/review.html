@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ interview.student_name }} - AI复盘详情</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="page-header compact hero-header">
+    <div>
+      <p class="eyebrow">面试AI复盘详情</p>
+      <h1>{{ interview.student_name }} 的面试AI复盘</h1>
+      <p>{{ interview.position_name }} · {{ interview.interview_round }} / {{ interview.interview_form }} · 当前模型：{{ 'DeepSeek' if provider == 'deepseek' else '千问' }}</p>
+    </div>
+    <div class="toolbar">
+      <label>
+        切换模型
+        <select id="review_provider" data-id="{{ interview.id }}">
+          <option value="deepseek" {% if provider == 'deepseek' %}selected{% endif %}>DeepSeek</option>
+          <option value="qwen" {% if provider == 'qwen' %}selected{% endif %}>千问</option>
+        </select>
+      </label>
+      <button type="button" id="refresh_review" data-id="{{ interview.id }}">重新生成复盘</button>
+      <span id="refresh_review_message" class="message inline-message"></span>
+      <a class="ghost-button" href="{{ url_for('web.interview_detail', interview_id=interview.id) }}">返回记录</a>
+    </div>
+  </header>
+
+  <section class="card review-brief">
+    <div class="brief-grid">
+      <div><strong>企业名称：</strong>{{ interview.company_name }}</div>
+      <div><strong>面试城市：</strong>{{ interview.interview_city }}</div>
+      <div><strong>面试时间：</strong>{{ interview.interview_time }}</div>
+      <div><strong>录音文件：</strong>{{ interview.audio_file_name }}</div>
+    </div>
+  </section>
+
+  <section class="summary-grid">
+    <article class="card metric-card">
+      <span class="metric-number">{{ review.overall_score }}</span>
+      <span class="metric-label">综合得分 / {{ review.overall_level }}</span>
+    </article>
+    <article class="card">
+      <h2>总体评价</h2>
+      <p>{{ review.overall_comment }}</p>
+      <p class="muted">{{ review.llm_summary }}</p>
+    </article>
+    <article class="card">
+      <h2>自我介绍点评</h2>
+      <p>{{ review.self_intro_comment }}</p>
+    </article>
+    <article class="card">
+      <h2>修改建议</h2>
+      <ul>
+        {% for item in review.suggestions %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </article>
+  </section>
+
+  <section class="card">
+    <h2>问题解析</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>问题</th>
+          <th>回答</th>
+          <th>得分</th>
+          <th>点评</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in review.question_analysis %}
+        <tr>
+          <td>{{ row.question }}</td>
+          <td>{{ row.answer }}</td>
+          <td>{{ row.score }}</td>
+          <td>{{ row.comment }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="compare-grid">
+    <article class="card transcript-card">
+      <h2>AI优化版</h2>
+      <pre>{{ review.optimized_transcript }}</pre>
+    </article>
+    <article class="card transcript-card">
+      <h2>完整原记录</h2>
+      <pre>{{ review.original_transcript }}</pre>
+    </article>
+  </section>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>面试AI复盘工单20</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-default-provider="{{ model_status.default_provider }}">
+  <header class="page-header hero-header">
+    <div>
+      <p class="eyebrow">教育智能体 · 工单20 · 面试 AI 复盘</p>
+      <h1>就业面试复盘工作台</h1>
+      <p>面向校务管理者与就业指导老师，统一完成面试记录跟踪、录音补传、AI 复盘生成与学生复盘辅导。</p>
+    </div>
+    <div class="toolbar top-toolbar">
+      <label>
+        复盘模型
+        <select id="model_provider">
+          <option value="deepseek" {% if model_status.default_provider == 'deepseek' %}selected{% endif %}>DeepSeek</option>
+          <option value="qwen" {% if model_status.default_provider == 'qwen' %}selected{% endif %}>千问</option>
+        </select>
+      </label>
+      <button id="open_import" type="button">批量导入记录</button>
+    </div>
+  </header>
+
+  <section class="metric-panel">
+    <article class="metric-box">
+      <span class="metric-title">当前列表记录</span>
+      <strong>{{ total_count }}</strong>
+    </article>
+    <article class="metric-box">
+      <span class="metric-title">已上传录音</span>
+      <strong>{{ audio_count }}</strong>
+    </article>
+    <article class="metric-box">
+      <span class="metric-title">待完善记录</span>
+      <strong>{{ pending_count }}</strong>
+    </article>
+    <article class="metric-box">
+      <span class="metric-title">学生填报记录</span>
+      <strong>{{ student_count }}</strong>
+    </article>
+  </section>
+
+  <section class="status-strip">
+    <span>DeepSeek：{{ '已配置' if model_status.deepseek else '未配置' }}</span>
+    <span>千问：{{ '已配置' if model_status.qwen else '未配置' }}</span>
+    <span>说明：仅存在录音文件的记录展示“面试AI复盘”入口。</span>
+  </section>
+
+  <section class="card filter-card">
+    <form method="get" class="filter-form">
+      <label>
+        关键词检索
+        <input type="text" name="keyword" value="{{ keyword }}" placeholder="搜索学生、岗位、企业、城市或记录内容">
+      </label>
+      <label>
+        数据来源
+        <select name="source_type">
+          <option value="all" {% if source_type == 'all' %}selected{% endif %}>全部</option>
+          <option value="teacher_import" {% if source_type == 'teacher_import' %}selected{% endif %}>教师导入</option>
+          <option value="student_report" {% if source_type == 'student_report' %}selected{% endif %}>学生填报</option>
+        </select>
+      </label>
+      <div class="filter-actions">
+        <button type="submit">查询</button>
+        <a class="ghost-button" href="{{ url_for('web.index') }}">重置</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="card table-card">
+    <div class="section-head">
+      <div>
+        <h2>面试记录列表</h2>
+        <p>支持老师批量导入、学生查看记录、录音补传和复盘追踪。</p>
+      </div>
+    </div>
+    {% if interviews %}
+    <table>
+      <thead>
+        <tr>
+          <th>学生</th>
+          <th>岗位名称</th>
+          <th>面试轮次/形式</th>
+          <th>面试城市/时间</th>
+          <th>上报人</th>
+          <th>上报时间</th>
+          <th>数据来源</th>
+          <th>面试AI复盘</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in interviews %}
+        <tr>
+          <td>
+            <a class="student-link" href="{{ url_for('web.interview_detail', interview_id=item.id) }}">{{ item.student_name }}</a>
+            <div class="subline">{{ item.company_name }}</div>
+          </td>
+          <td>
+            {{ item.position_name }}
+            <div class="subline">状态：{{ item.status }}</div>
+          </td>
+          <td>{{ item.interview_round }} / {{ item.interview_form }}</td>
+          <td>{{ item.interview_city }} / {{ item.interview_time }}</td>
+          <td>{{ item.reporter_name }}</td>
+          <td>{{ item.report_time }}</td>
+          <td>{{ '教师导入' if item.source_type == 'teacher_import' else '学生填报' }}</td>
+          <td>
+            {% if item.audio_file_name %}
+            <a class="action-link review-link" href="{{ url_for('web.review_detail', interview_id=item.id) }}" data-id="{{ item.id }}">面试AI复盘</a>
+            {% else %}
+            <span class="muted">无录音</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <h3>当前筛选条件下暂无面试记录</h3>
+      <p>你可以重置筛选条件，或通过“批量导入记录”继续导入新的学生面试数据。</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <dialog id="import_dialog">
+    <form id="import_form" class="stack-form">
+      <h2>批量导入面试记录</h2>
+      <label>
+        上报人
+        <input id="reporter_name" name="reporter_name" value="就业指导老师">
+      </label>
+      <label>
+        导入模板(JSON数组)
+        <textarea id="import_rows" name="import_rows" rows="14">[
+  {
+    "id": "INT-20260713-010",
+    "student_name": "示例学生",
+    "position_name": "NLP算法工程师",
+    "interview_round": "一面",
+    "interview_form": "技术面",
+    "interview_city": "北京",
+    "interview_time": "2026-07-13 15:00",
+    "company_name": "示例企业",
+    "self_intro": "请填写学生自我介绍",
+    "full_transcript": "面试官：请输入完整面试记录。\n学生：请输入学生回答。",
+    "audio_text": "",
+    "audio_file_name": "",
+    "notes": "",
+    "question_answers": [
+      {
+        "question": "请输入问题",
+        "answer": "请输入回答"
+      }
+    ]
+  }
+]</textarea>
+      </label>
+      <div class="dialog-actions">
+        <button type="submit">确认导入</button>
+        <button type="button" id="close_import">取消</button>
+      </div>
+      <p id="import_message" class="message"></p>
+    </form>
+  </dialog>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ interview.student_name }} - 面试记录</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="page-header compact hero-header">
+    <div>
+      <p class="eyebrow">学生面试记录详情</p>
+      <h1>{{ interview.student_name }} 的面试记录</h1>
+      <p>{{ interview.position_name }} · {{ interview.interview_round }} / {{ interview.interview_form }} · {{ interview.company_name }}</p>
+    </div>
+    <div class="toolbar">
+      <a class="ghost-button" href="{{ url_for('web.index') }}">返回列表</a>
+      {% if interview.audio_file_name %}
+      <a id="detail_review_link" class="primary-button" href="{{ url_for('web.review_detail', interview_id=interview.id) }}">查看面试AI复盘</a>
+      {% endif %}
+    </div>
+  </header>
+
+  <section class="detail-grid">
+    <article class="card">
+      <h2>基础信息</h2>
+      <ul class="kv-list">
+        <li><strong>企业：</strong>{{ interview.company_name }}</li>
+        <li><strong>岗位：</strong>{{ interview.position_name }}</li>
+        <li><strong>轮次 / 形式：</strong>{{ interview.interview_round }} / {{ interview.interview_form }}</li>
+        <li><strong>面试城市：</strong>{{ interview.interview_city }}</li>
+        <li><strong>面试时间：</strong>{{ interview.interview_time }}</li>
+        <li><strong>上报人：</strong>{{ interview.reporter_name }}</li>
+        <li><strong>上报时间：</strong>{{ interview.report_time }}</li>
+        <li><strong>数据来源：</strong>{{ '教师导入' if interview.source_type == 'teacher_import' else '学生填报' }}</li>
+        <li><strong>状态：</strong>{{ interview.status }}</li>
+        <li><strong>录音文件：</strong>{{ interview.audio_file_name or '暂无' }}</li>
+      </ul>
+    </article>
+
+    <article class="card">
+      <h2>修改规则</h2>
+      <p>{% if can_edit %}当前记录支持编辑，满足“待完善”或两天内修改规则。{% else %}当前记录已超过学生可修改时限，仅供查看。{% endif %}</p>
+      <p class="muted">建议流程：先确认完整面试记录，再补传录音，最后进入 AI 复盘页面查看问题解析与优化建议。</p>
+      {% if can_edit %}
+      <form id="audio_form" enctype="multipart/form-data" data-id="{{ interview.id }}" class="stack-form">
+        <label>
+          上传录音
+          <input type="file" name="audio" accept=".mp3,.wav,.m4a,.aac,.ogg">
+        </label>
+        <button type="submit">上传录音</button>
+        <p id="audio_message" class="message"></p>
+      </form>
+      {% else %}
+      <p class="muted">当前记录不在可编辑周期内，暂不支持补传录音。</p>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="card">
+    <h2>面试记录编辑</h2>
+    <form id="detail_form" class="stack-form" data-id="{{ interview.id }}">
+      <input type="hidden" name="student_name" value="{{ interview.student_name }}">
+      <label>
+        编辑人姓名
+        <input name="editor_name" value="{{ interview.student_name }}" {% if not can_edit %}disabled{% endif %}>
+      </label>
+      <label>
+        状态
+        <select name="status" {% if not can_edit %}disabled{% endif %}>
+          <option value="已上报" {% if interview.status == '已上报' %}selected{% endif %}>已上报</option>
+          <option value="待完善" {% if interview.status == '待完善' %}selected{% endif %}>待完善</option>
+        </select>
+      </label>
+      <label>
+        自我介绍
+        <textarea name="self_intro" rows="4" {% if not can_edit %}disabled{% endif %}>{{ interview.self_intro }}</textarea>
+      </label>
+      <label>
+        完整面试记录
+        <textarea name="full_transcript" rows="10" {% if not can_edit %}disabled{% endif %}>{{ interview.full_transcript }}</textarea>
+      </label>
+      <label>
+        录音转写文本
+        <textarea name="audio_text" rows="6" {% if not can_edit %}disabled{% endif %}>{{ interview.audio_text }}</textarea>
+      </label>
+      <label>
+        补充备注
+        <textarea name="notes" rows="4" {% if not can_edit %}disabled{% endif %}>{{ interview.notes }}</textarea>
+      </label>
+      <label>
+        问题答案(JSON数组)
+        <textarea name="question_answers" rows="10" {% if not can_edit %}disabled{% endif %}>{{ interview.question_answers | tojson(indent=2) }}</textarea>
+      </label>
+      {% if can_edit %}
+      <button type="submit">保存修改</button>
+      {% endif %}
+      <p id="detail_message" class="message"></p>
+    </form>
+  </section>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
