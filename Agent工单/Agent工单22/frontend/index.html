@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多领域智能体长期记忆系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;background:#1a1a2e;color:#eee;display:flex;height:100vh}
+/* 左侧边栏 */
+.sidebar{width:260px;background:#16213e;padding:20px;display:flex;flex-direction:column;gap:12px;flex-shrink:0}
+.sidebar h2{font-size:18px;color:#e94560;text-align:center;margin-bottom:8px}
+.sidebar label{font-size:12px;color:#aaa;margin-bottom:-8px;margin-top:4px}
+.sidebar select,.sidebar input,.sidebar button{width:100%;padding:10px 12px;border-radius:8px;border:none;font-size:14px;outline:none}
+.sidebar select,.sidebar input{background:#0f3460;color:#fff}
+.sidebar button{background:#e94560;color:#fff;cursor:pointer;font-weight:bold;transition:background .2s}
+.sidebar button:hover{background:#ff6b81}
+.sidebar .info{font-size:11px;color:#888;margin-top:auto;text-align:center;line-height:1.8}
+/* 右侧主区域 */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;background:#1a1a2e}
+.header{background:#16213e;padding:14px 24px;border-bottom:2px solid #e94560;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:19px;color:#fff}.header span{font-size:12px;color:#888}
+/* 聊天区 */
+.chat{flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:80%;padding:12px 16px;border-radius:12px;line-height:1.7;word-break:break-word;animation:fadeIn .3s}
+.msg.user{align-self:flex-end;background:#e94560;color:#fff}
+.msg.assistant{align-self:flex-start;background:#0f3460;color:#eee}
+.msg.system{align-self:center;background:#2a2a3e;color:#aaa;font-size:12px;max-width:90%;text-align:center}
+.msg.error{align-self:center;background:#4a1a1a;color:#ff9999;font-size:12px;max-width:90%}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* 输入区 */
+.input-area{display:flex;padding:14px 24px;background:#16213e;gap:12px}
+.input-area input{flex:1;padding:12px 16px;border-radius:10px;border:none;background:#0f3460;color:#fff;font-size:15px;outline:none}
+.input-area button{padding:12px 28px;background:#e94560;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:15px;white-space:nowrap}
+.input-area button:hover{background:#ff6b81}
+.input-area button:disabled{opacity:.5;cursor:not-allowed}
+/* 加载动画 */
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#888;animation:bounce 1.4s infinite both;margin:0 2px;vertical-align:middle}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{opacity:0;transform:scale(0.5)}40%{opacity:1;transform:scale(1)}}
+</style>
+</head>
+<body>
+
+<!-- ===== 左侧边栏 ===== -->
+<div class="sidebar">
+  <h2>🧠 记忆系统</h2>
+  <label>📂 选择领域</label>
+  <select id="domain" onchange="onDomainChange()">
+    <option value="medical">🏥 医疗领域</option>
+    <option value="tourism">✈️ 文旅领域</option>
+    <option value="education">📚 教育领域</option>
+  </select>
+  <label>👤 用户 ID</label>
+  <input id="userId" value="PAT001" placeholder="输入用户ID">
+  <button onclick="resetMemory()">🗑 清空该用户记忆</button>
+  <button onclick="loadMemories()">📋 刷新记忆列表</button>
+  <div class="info">
+    🤖 模型: deepseek-v4-flash<br>
+    💾 后端: mem0 + pgvector<br>
+    🔗 API: localhost:8008
+  </div>
+</div>
+
+<!-- ===== 右侧聊天区 ===== -->
+<div class="main">
+  <div class="header">
+    <h1 id="title">🏥 医疗智能体 · 长期记忆对话</h1>
+    <span id="status">用户: PAT001 | 记忆: --</span>
+  </div>
+  <div class="chat" id="chat">
+    <div class="msg system">👋 欢迎！已进入医疗领域。请在下方输入你的问题，系统会自动检索历史记忆并提供个性化回复。</div>
+  </div>
+  <div class="input-area">
+    <input id="msgInput" placeholder="输入你的消息，按 Enter 发送..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendMsg()">
+    <button id="sendBtn" onclick="sendMsg()">发 送</button>
+  </div>
+</div>
+
+<!-- ===== JavaScript 前后端交互逻辑 ===== -->
+<script>
+// ============================================================
+// 配置 — 后端 API 地址
+// ============================================================
+var API = 'http://localhost:8008';  // agent_bridge.py 的地址
+
+// ============================================================
+// 全局状态
+// ============================================================
+var conv = [];  // 当前会话的对话历史
+
+// 领域名称映射
+var domainLabels = {
+  medical: '🏥 医疗智能体',
+  tourism: '✈️ 文旅智能体',
+  education: '📚 教育智能体'
+};
+
+// ============================================================
+// 工具函数
+// ============================================================
+function $(id){return document.getElementById(id)}  // 简写
+
+function escHtml(s){  // HTML 转义防止 XSS
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ============================================================
+// 领域切换
+// ============================================================
+function onDomainChange(){
+  var d = $('domain').value;
+  $('title').textContent = domainLabels[d] + ' · 长期记忆对话';
+  conv = [];  // 切换领域时清空当前对话
+  addMsg('system','已切换到 ' + domainLabels[d] + ' 领域，对话历史已清空');
+  loadMemories();
+}
+
+// ============================================================
+// 添加消息到聊天区
+// ============================================================
+function addMsg(role, html){
+  var div = document.createElement('div');
+  div.className = 'msg ' + role;
+  div.innerHTML = html;
+  $('chat').appendChild(div);
+  $('chat').scrollTop = $('chat').scrollHeight;  // 滚动到底部
+  return div;  // 返回 DOM 元素便于后续更新
+}
+
+// ============================================================
+// 发送消息 — 核心交互流程
+// ============================================================
+async function sendMsg(){
+  var input = $('msgInput'), msg = input.value.trim();
+  if(!msg) return;  // 空消息忽略
+  var domain = $('domain').value, userId = $('userId').value;
+
+  // UI 状态：禁用输入
+  input.value = '';
+  input.disabled = true;
+  $('sendBtn').disabled = true;
+
+  // 显示用户消息
+  addMsg('user', escHtml(msg));
+  conv.push({role:'user', content:msg});
+
+  // 显示加载动画
+  var thinkDiv = addMsg('assistant', '<span class="dot"></span><span class="dot"></span><span class="dot"></span> 思考中...');
+
+  try{
+    // ---- 交由后端自动检索并注入长期记忆 ----
+    var sysPrompt = buildSysPrompt(domain);
+    var chatRes = await fetch(API + '/api/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        messages: [{role:'system', content:sysPrompt}].concat(conv),
+        domain: domain,
+        user_id: userId,
+        inject_memory: true,
+        memory_injected: false
+      })
+    });
+    if(!chatRes.ok){
+      var errText = await chatRes.text();
+      throw new Error('AI服务响应异常 (HTTP ' + chatRes.status + '): ' + errText.slice(0,150));
+    }
+    var chatData = await chatRes.json();
+    if(!chatData.reply) throw new Error('AI返回了空回复');
+    var reply = chatData.reply;
+
+    // 更新界面：用真实回复替换加载动画
+    thinkDiv.innerHTML = reply.replace(/\n/g,'<br>');
+    conv.push({role:'assistant', content:reply});
+
+    // 记忆已在后端/api/chat中同步存储，这里只需刷新计数
+    loadMemories();
+
+  }catch(e){
+    // 错误处理：显示具体错误信息
+    thinkDiv.className = 'msg error';
+    thinkDiv.innerHTML = '❌ ' + escHtml(e.message);
+    console.error('[sendMsg]', e);  // 浏览器控制台输出详细错误
+  }finally{
+    // 恢复输入
+    input.disabled = false;
+    $('sendBtn').disabled = false;
+    input.focus();
+  }
+}
+
+// ============================================================
+// 构建系统提示词（长期记忆由后端自动注入）
+// ============================================================
+function buildSysPrompt(domain){
+  var bases = {
+    medical: '你是一个专业、体贴的医疗助手。请根据患者的历史病历和本次描述，给出专业的诊疗建议。如果缺少关键信息，可以主动追问。',
+    tourism: '你是一个贴心的旅行规划师。请根据用户的历史旅行偏好和本次需求，推荐个性化的旅行方案。',
+    education: '你是一个耐心的辅导老师。请根据学生的学习历史、薄弱点和本次提问，提供有针对性的解答和鼓励。'
+  };
+  return (bases[domain] || bases.medical) + '\n\n系统会自动检索该用户的长期记忆，并在回复中体现历史信息。';
+}
+
+// ============================================================
+// 刷新记忆列表（显示在顶部状态栏）
+// ============================================================
+async function loadMemories(){
+  var domain = $('domain').value, userId = $('userId').value;
+  try{
+    var res = await fetch(API + '/api/memory/list?domain=' + domain + '&user_id=' + userId);
+    var data = await res.json();
+    var count = data.data?.count || 0;
+    $('status').textContent = '用户: ' + userId + ' | 记忆: ' + count + ' 条';
+  }catch(e){
+    $('status').textContent = '用户: ' + userId + ' | 记忆: ? (后端连接失败)';
+  }
+}
+
+// ============================================================
+// 清空用户记忆
+// ============================================================
+async function resetMemory(){
+  var domain = $('domain').value, userId = $('userId').value;
+  if(!confirm('确定要删除【' + userId + '】在【' + domain + '】领域的所有记忆吗？此操作不可恢复！')) return;
+  try{
+    await fetch(API + '/api/memory/reset?domain=' + domain + '&user_id=' + userId, {method:'DELETE'});
+    addMsg('system','🗑 用户 ' + userId + ' 在 ' + domain + ' 领域的记忆已全部清空');
+    conv = [];
+    loadMemories();
+  }catch(e){
+    addMsg('system','❌ 清空失败: ' + escHtml(e.message));
+  }
+}
+
+// ============================================================
+// 启动时加载记忆计数
+// ============================================================
+loadMemories();
+</script>
+
+</body>
+</html>

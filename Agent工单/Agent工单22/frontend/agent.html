@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Agent 数字人</title><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei",sans-serif;background:#0d1117;color:#c9d1d9;display:flex;height:100vh}
+.side{width:260px;background:#161b22;padding:20px;display:flex;flex-direction:column;gap:12px;border-right:1px solid #30363d}
+.side h2{color:#58a6ff;text-align:center;font-size:18px}
+.side label{font-size:11px;color:#8b949e}
+.side select,.side input,.side button{width:100%;padding:10px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#c9d1d9;font-size:13px}
+.side button{background:#238636;color:#fff;cursor:pointer;font-weight:bold;border:none}
+.side button:hover{background:#2ea043}
+.side .info{font-size:10px;color:#484f58;margin-top:auto;text-align:center;line-height:1.8}
+.main{flex:1;display:flex;flex-direction:column}
+.bar{background:#161b22;padding:12px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between}
+.bar h1{font-size:17px;color:#58a6ff}.bar span{font-size:11px;color:#8b949e}
+.chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:80%;padding:10px 14px;border-radius:8px;line-height:1.6;font-size:14px;animation:in .2s}
+.msg.u{align-self:flex-end;background:#238636}
+.msg.a{align-self:flex-start;background:#161b22;border:1px solid #30363d}
+.msg.t{align-self:flex-start;background:#1a2332;border:1px solid #1f6feb;font-size:12px;color:#58a6ff}
+.msg.s{align-self:center;font-size:11px;color:#484f58}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.inputB{display:flex;padding:12px 20px;background:#161b22;gap:10px;border-top:1px solid #30363d}
+.inputB input{flex:1;padding:10px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#fff;font-size:14px;outline:none}
+.inputB button{padding:10px 24px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold}
+.inputB button:disabled{opacity:.4}
+</style></head><body>
+<div class="side"><h2>🤖 Agent 数字人</h2>
+<label>📂 领域</label><select id="dm" onchange="sw()"><option value="medical">🏥 医疗Agent</option><option value="tourism">✈️ 文旅Agent</option><option value="education">📚 教育Agent</option></select>
+<label>👤 用户ID</label><input id="uid" value="PAT001">
+<button onclick="rst()">🗑 清空记忆</button>
+<button onclick="cnt()">📋 刷新记忆</button>
+<div class="info">🤖 模型: deepseek-v4-flash<br>🧠 记忆: mem0 + pgvector<br>🔧 工具: 挂号/开药/查报告等<br>🔗 端口: 8010</div></div>
+<div class="main"><div class="bar"><h1 id="ttl">🏥 医疗Agent · 数字人</h1><span id="sts">就绪</span></div>
+<div class="chat" id="chat"><div class="msg s">👋 我是具备长期记忆 + 工具调用能力的 Agent 数字人。<br>试试说：<br>  🏥 "帮我挂内科的号" 或 "我头疼了一周"<br>  ✈️ "推荐三亚的好玩景点"<br>  📚 "给我出几道函数求导的练习题"</div></div>
+<div class="inputB"><input id="inp" placeholder="输入消息，Enter 发送..." onkeydown="if(event.key==='Enter')send()"><button id="btn" onclick="send()">发送</button></div></div>
+<script>
+var lbl={medical:'🏥 医疗Agent · 数字人',tourism:'✈️ 文旅Agent · 数字人',education:'📚 教育Agent · 数字人'};
+function $(id){return document.getElementById(id)}
+function add(r,h){var d=document.createElement('div');d.className='msg '+r;d.innerHTML=h;$('chat').appendChild(d);$('chat').scrollTop=$('chat').scrollHeight;return d}
+function sw(){$('ttl').textContent=lbl[$('dm').value];add('s','切换到'+lbl[$('dm').value]);cnt()}
+async function send(){
+var m=$('inp').value.trim();if(!m)return;
+var dm=$('dm').value,uid=$('uid').value;
+$('inp').value='';$('inp').disabled=true;$('btn').disabled=true;
+add('u',m);var t=add('a','⏳ Agent思考中...');
+try{
+var r=await fetch('/api/agent/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain:dm,user_id:uid,message:m})});
+var d=await r.json();
+t.innerHTML=d.reply.replace(/\\n/g,'<br>');
+if(d.tool_calls&&d.tool_calls.length)for(var tc of d.tool_calls)add('t','🔧 调用工具: '+tc.tool);
+cnt();
+}catch(e){t.className='msg s';t.innerHTML='❌ 错误: '+e.message}
+finally{$('inp').disabled=false;$('btn').disabled=false;$('inp').focus()}
+}
+async function cnt(){
+try{var r=await fetch('/api/agent/memories?domain='+$('dm').value+'&user_id='+$('uid').value);var d=await r.json();$('sts').textContent='用户: '+$('uid').value+' | 记忆: '+d.count+'条 | 工具: '+{medical:'挂号/开药/查报告',tourism:'查景点/订行程',education:'出题/评估'}[$('dm').value]}catch(e){$('sts').textContent='连接中...'}}
+async function rst(){
+if(!confirm('确定清空【'+$('uid').value+'】在【'+$('dm').value+'】领域的所有记忆？'))return;
+await fetch('/api/agent/reset?domain='+$('dm').value+'&user_id='+$('uid').value,{method:'DELETE'});
+add('s','🗑 记忆已清空');cnt()}
+cnt();
+</script></body></html>

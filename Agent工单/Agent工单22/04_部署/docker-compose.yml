@@ -1,0 +1,25 @@
+# ============================================================
+# 多领域智能体长期记忆系统 — Docker Compose 编排
+# ============================================================
+# 启动:  docker compose up -d
+# 停止:  docker compose down
+# 日志:  docker compose logs -f bridge
+# ============================================================
+
+services:
+  bridge:
+    build:
+      context: ../..
+      dockerfile: 04_部署/Dockerfile
+    container_name: agent-memory-bridge
+    ports:
+      - "8008:8008"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      - MEM0_BASE_URL=${MEM0_BASE_URL:-http://host.docker.internal:8888}
+      - BRIDGE_PORT=${BRIDGE_PORT:-8008}
+    restart: unless-stopped
+
+  # 注意: mem0/postgres/neo4j 由外部 mem0-deploy 管理

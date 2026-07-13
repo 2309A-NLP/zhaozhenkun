@@ -1,0 +1,16 @@
+# ============================================================
+# 多领域智能体长期记忆系统 — Python 依赖
+# ============================================================
+# 安装方式: pip install -r requirements.txt
+# 或使用清华镜像加速:
+#   pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+# --- HTTP 客户端 (调用 mem0 REST API 和 DeepSeek API) ---
+requests>=2.31.0
+
+# --- Web 框架 (桥接 API 服务) ---
+fastapi>=0.100.0
+uvicorn>=0.23.0
+
+# --- 数据验证 ---
+pydantic>=2.0.0
