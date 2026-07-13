@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>教育Agent智能备课工作台</title>
+    <link rel="stylesheet" href="/static/app/styles.css" />
+  </head>
+  <body>
+    <div class="studio-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">logo</div>
+          <div>
+            <h1>教育Agent</h1>
+            <p>智能备课工作台</p>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-view="workspace" data-section="panel-course" data-nav-action="lesson_plan"><span class="nav-icon">课</span><span>课程内容</span></button>
+          <button class="nav-item" data-view="workspace" data-section="panel-stage" data-nav-action="focus"><span class="nav-icon">教</span><span>教学设计</span></button>
+          <button class="nav-item" data-view="workspace" data-section="panel-preview" data-nav-action="courseware"><span class="nav-icon">件</span><span>课件资源</span></button>
+          <button class="nav-item" data-view="workspace" data-section="panel-results" data-nav-action="exercise"><span class="nav-icon">练</span><span>练习题库</span></button>
+          <button class="nav-item" data-view="workspace" data-section="panel-resource" data-nav-action="resource"><span class="nav-icon">搜</span><span>资源检索</span></button>
+          <button class="nav-item" data-view="workspace" data-section="panel-export" data-nav-action="export"><span class="nav-icon">导</span><span>导出/推送</span></button>
+          <button class="nav-item" data-view="workspace" data-section="panel-version" data-nav-action="version"><span class="nav-icon">版</span><span>版本管理</span></button>
+        </nav>
+      </aside>
+
+      <main class="studio-main">
+        <header class="topbar">
+          <div class="topbar-left">
+            <select id="scene-select">
+              <option>高中教学</option>
+              <option>初中教学</option>
+              <option>大学教学</option>
+            </select>
+            <select id="unit-select">
+              <option>第一单元·集合</option>
+              <option>第二单元·函数</option>
+              <option>第三单元·概率</option>
+            </select>
+          </div>
+          <div class="topbar-right">
+            <button id="use-demo" class="ghost-btn">填充示例</button>
+            <button id="open-login" class="primary-btn">立即登录</button>
+            <div class="user-pill">当前用户：<span id="header-user-name">未登录</span></div>
+          </div>
+        </header>
+
+        <section class="stats-strip">
+          <article class="metric-card">
+            <span>系统状态</span>
+            <strong id="metric-health">待检测</strong>
+            <small>服务运行状态</small>
+          </article>
+          <article class="metric-card">
+            <span>知识资源</span>
+            <strong id="metric-documents">0</strong>
+            <small>资源库文档数</small>
+          </article>
+          <article class="metric-card">
+            <span>登录状态</span>
+            <strong id="metric-user">未登录</strong>
+            <small>当前会话用户</small>
+          </article>
+          <article class="metric-card">
+            <span>生成内容</span>
+            <strong id="metric-contents">0</strong>
+            <small>已生成成果数</small>
+          </article>
+        </section>
+
+        <section id="view-workspace" class="view active">
+          <div class="workspace-top-grid">
+            <article class="panel-card" id="panel-course">
+              <div class="section-head">
+                <div>
+                  <h3>课程基本信息</h3>
+                  <p>录入课程和教学目标，发起智能备课</p>
+                </div>
+              </div>
+              <form id="generate-form" class="form-grid compact-grid">
+                <label>
+                  <span>课程名称</span>
+                  <input name="course_name" required />
+                </label>
+                <label class="full">
+                  <span>教学目标</span>
+                  <textarea name="teaching_objectives" rows="3" required></textarea>
+                </label>
+                <label>
+                  <span>章节</span>
+                  <input name="chapter" required />
+                </label>
+                <label>
+                  <span>年级</span>
+                  <input name="grade_level" required />
+                </label>
+                <label>
+                  <span>学科</span>
+                  <input name="subject" required />
+                </label>
+                <label>
+                  <span>课时</span>
+                  <input name="class_hours" type="number" min="1" max="20" value="1" />
+                </label>
+                <label class="full">
+                  <span>教学重点</span>
+                  <input name="key_points" />
+                </label>
+                <label class="full">
+                  <span>教学难点</span>
+                  <input name="difficult_points" />
+                </label>
+                <label class="full">
+                  <span>补充指令</span>
+                  <textarea name="additional_instructions" rows="2"></textarea>
+                </label>
+                <label class="full">
+                  <span>生成内容</span>
+                  <div class="chip-group">
+                    <label><input type="checkbox" value="lesson_plan" checked />教案</label>
+                    <label><input type="checkbox" value="courseware" checked />课件</label>
+                    <label><input type="checkbox" value="exercise" checked />练习</label>
+                    <label><input type="checkbox" value="case_study" />案例</label>
+                  </div>
+                </label>
+                <label class="switch-row full">
+                  <input name="use_kb" type="checkbox" checked />
+                  <span>智能推荐</span>
+                </label>
+              </form>
+            </article>
+
+            <article class="panel-card" id="panel-knowledge">
+              <div class="section-head between">
+                <div>
+                  <h3>知识体系</h3>
+                  <p>沉淀知识点、概念总结和来源信息</p>
+                </div>
+                <button id="refresh-citations" class="tiny-btn">刷新</button>
+              </div>
+              <div class="knowledge-form">
+                <input id="upload-title" placeholder="添加知识点" />
+                <select id="upload-type">
+                  <option value="school_based">校本资源</option>
+                  <option value="textbook">教材资源</option>
+                  <option value="web">网络资源</option>
+                </select>
+                <input id="upload-tags" placeholder="标签：集合,数学" />
+                <textarea id="upload-content" rows="4" placeholder="集合的概念、表示方式、运算规则等"></textarea>
+                <input id="upload-url" placeholder="来源链接（可选）" />
+                <button id="upload-resource" class="primary-btn small-btn">+ 添加知识</button>
+              </div>
+              <div id="citation-list" class="summary-list empty">暂无知识点摘要</div>
+            </article>
+
+            <aside class="panel-card right-panel" id="panel-resource">
+              <div class="section-head">
+                <div>
+                  <h3>资源库</h3>
+                  <p>检索资源并快速生成引用</p>
+                </div>
+              </div>
+              <div class="search-box">
+                <input id="resource-query" placeholder="搜索资源" />
+                <button id="search-resource" class="icon-btn">⌕</button>
+              </div>
+              <div id="resource-results" class="resource-list empty">暂无资源</div>
+              <div class="section-divider"></div>
+              <div class="section-head compact-head">
+                <div>
+                  <h3>协同圈组</h3>
+                  <p>教学协同与消息广播</p>
+                </div>
+                <button id="start-session" class="tiny-btn">创建</button>
+              </div>
+              <div id="collab-status" class="timeline-list empty">尚未创建协同会话</div>
+            </aside>
+          </div>
+
+          <div class="workspace-middle-grid">
+            <section class="panel-card stage-card" id="panel-stage">
+              <div class="section-head between align-start">
+                <div>
+                  <h3>教案设计</h3>
+                  <p id="content-status">等待发起备课任务</p>
+                </div>
+                <div class="mode-tabs">
+                  <button type="button" class="mode-chip active" data-mode="focus">教学重难点</button>
+                  <button type="button" class="mode-chip" data-mode="process">教学流程</button>
+                  <button type="button" class="mode-chip" data-mode="activity">活动设计</button>
+                </div>
+              </div>
+              <div id="stream-status" class="status-banner hidden">正在生成中...</div>
+              <div class="stage-tabs" id="content-tabs"></div>
+              <div class="preview-board" id="panel-preview">
+                <div class="preview-screen">
+                  <div class="preview-topline" id="preview-tag">课程预览</div>
+                  <div class="preview-title" id="preview-title">MATH</div>
+                  <div class="preview-subtitle" id="preview-subtitle">输入课程信息后，这里会展示当前教案/课件预览摘要。</div>
+                </div>
+                <div class="tool-grid">
+                  <button type="button" class="tool-tile" data-tool="text">文本</button>
+                  <button type="button" class="tool-tile" data-tool="image">图片</button>
+                  <button type="button" class="tool-tile" data-tool="shape">图形</button>
+                  <button type="button" class="tool-tile" data-tool="table">表格</button>
+                  <button type="button" class="tool-tile" data-tool="chart">图表</button>
+                  <button type="button" class="tool-tile" data-tool="video">视频</button>
+                </div>
+              </div>
+              <div class="action-row">
+                <button type="submit" form="generate-form" class="primary-btn">生成教案</button>
+                <button type="button" id="generate-normal" class="secondary-btn">生成课件</button>
+                <button type="button" id="export-markdown" class="secondary-btn">导出成果</button>
+                <button type="button" id="save-content" class="ghost-btn">保存内容</button>
+                <button type="button" id="improve-content" class="ghost-btn">智能优化</button>
+              </div>
+              <div class="editor-wrap">
+                <textarea id="content-editor" class="editor" placeholder="生成结果将在这里展示，可继续编辑"></textarea>
+              </div>
+            </section>
+          </div>
+
+          <div class="workspace-bottom-grid">
+            <section class="panel-card results-card" id="panel-results">
+              <div class="section-head between">
+                <div>
+                  <h3>生成内容预览</h3>
+                  <p>展示已生成的教案、课件和练习成果</p>
+                </div>
+                <button id="refresh-contents" class="tiny-btn">刷新内容</button>
+              </div>
+              <div class="result-filters">
+                <button type="button" class="filter-chip active" data-filter="lesson_plan">教案</button>
+                <button type="button" class="filter-chip" data-filter="courseware">课件</button>
+                <button type="button" class="filter-chip" data-filter="exercise">练习</button>
+                <button type="button" class="filter-chip" data-filter="fullscreen">全屏预览</button>
+                <button type="button" class="filter-chip" data-filter="export">导出</button>
+                <button type="button" class="filter-chip" data-filter="push">推送</button>
+              </div>
+              <div id="content-list" class="result-gallery empty">暂无内容数据</div>
+            </section>
+
+            <aside class="side-stack">
+              <section class="panel-card small-stack-card" id="panel-version">
+                <div class="section-head between compact-head">
+                  <div>
+                    <h3>版本管理</h3>
+                    <p>查看版本与恢复历史</p>
+                  </div>
+                  <button id="refresh-versions" class="tiny-btn">刷新</button>
+                </div>
+                <div id="version-list" class="stack-list empty">暂无版本记录</div>
+              </section>
+              <section class="panel-card small-stack-card" id="panel-export">
+                <div class="section-head compact-head">
+                  <div>
+                    <h3>导出/推送</h3>
+                    <p>成果导出与下载</p>
+                  </div>
+                </div>
+                <div id="export-list" class="stack-list empty">暂无导出文件</div>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="view-resources" class="view">
+          <div class="placeholder-card">
+            <h3>资源检索视图</h3>
+            <p>当前主工作台已经集成资源库和知识体系模块，这里保留为独立资源检索入口。</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="login-modal" class="modal hidden">
+      <div class="modal-card">
+        <button id="close-login" class="modal-close">×</button>
+        <span class="modal-tag">Secure Access</span>
+        <h3>登录智能备课工作台</h3>
+        <p>使用演示教师账号即可进入完整工作流。</p>
+        <form id="login-form" class="form-grid compact-grid">
+          <label>
+            <span>用户名</span>
+            <input name="username" value="teacher01" required />
+          </label>
+          <label>
+            <span>密码</span>
+            <input name="password" type="password" placeholder="如果忘了密码，直接点下方免密进入" />
+          </label>
+          <button type="submit" class="primary-btn full-btn">登录并进入工作台</button>
+          <button type="button" id="demo-login" class="secondary-btn full-btn">演示账号免密进入</button>
+        </form>
+        <div id="login-feedback" class="feedback"></div>
+      </div>
+    </div>
+
+    <script>
+      window.addEventListener('error', function (event) {
+        var target = document.getElementById('login-feedback');
+        if (target) {
+          target.textContent = '前端脚本加载异常：' + (event.message || 'unknown error');
+          target.style.color = '#ef4444';
+        }
+      });
+    </script>
+    <script defer src="/static/app/app.js"></script>
+  </body>
+</html>
