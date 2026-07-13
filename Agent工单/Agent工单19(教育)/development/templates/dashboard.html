@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>个性化学习推荐仪表盘</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+<div class="page-shell">
+    <header class="hero-card">
+        <div>
+            <p class="eyebrow">教育智能体 · 个性化学习推荐</p>
+            <h1>欢迎回来，{{ dashboard.student.name }}</h1>
+            <p class="hero-copy">系统基于知识图谱、答题记录与错题轨迹，持续更新你的学习画像与推荐路径。</p>
+        </div>
+        <div class="hero-actions">
+            <label class="select-card">
+                <span>切换学生</span>
+                <select id="studentSelect">
+                    {% for student in dashboard.students %}
+                    <option value="{{ student.id }}" {% if student.id == dashboard.student.id %}selected{% endif %}>{{ student.name }} · {{ student.level }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button id="themeToggle" class="ghost-button">切换主题</button>
+        </div>
+    </header>
+
+    <section class="summary-grid">
+        <article class="metric-card accent-blue"><span>综合画像</span><strong>{{ dashboard.summary.overall_score }}</strong><small>当前学习总分</small></article>
+        <article class="metric-card accent-purple"><span>已掌握</span><strong>{{ dashboard.summary.mastered_count }}</strong><small>知识点数量</small></article>
+        <article class="metric-card accent-teal"><span>近期正确率</span><strong>{{ dashboard.summary.recent_accuracy }}%</strong><small>最近 10 次练习</small></article>
+        <article class="metric-card accent-orange"><span>待关注</span><strong>{{ dashboard.summary.risk_count }}</strong><small>薄弱知识点</small></article>
+    </section>
+
+    <main class="dashboard-grid">
+        <section class="panel panel-wide">
+            <div class="panel-head">
+                <div>
+                    <p class="panel-tag">画像诊断</p>
+                    <h2>知识掌握度</h2>
+                </div>
+                <div class="legend-row">
+                    <span><i class="dot good"></i>已掌握</span>
+                    <span><i class="dot mid"></i>提升中</span>
+                    <span><i class="dot risk"></i>薄弱</span>
+                </div>
+            </div>
+            <div class="mastery-list">
+                {% for item in dashboard.mastery_levels %}
+                <article class="mastery-item">
+                    <div class="mastery-text">
+                        <div>
+                            <h3>{{ item.title }}</h3>
+                            <p>{{ item.description }}</p>
+                        </div>
+                        <span class="band {{ 'band-risk' if item.band == '薄弱' else 'band-mid' if item.band == '提升中' else 'band-good' }}">{{ item.band }}</span>
+                    </div>
+                    <div class="progress-track"><span style="width: {{ item.score }}%"></span></div>
+                    <div class="mastery-meta"><span>掌握度 {{ item.score }}%</span><span>难度 L{{ item.difficulty }}</span></div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head"><div><p class="panel-tag">路径推荐</p><h2>学习路线图</h2></div></div>
+            <div class="timeline">
+                {% for item in dashboard.learning_path %}
+                <article class="timeline-item">
+                    <div class="timeline-node"></div>
+                    <div class="timeline-card">
+                        <div class="timeline-title"><h3>{{ item.title }}</h3><span>{{ item.state }}</span></div>
+                        <p>{{ item.reason }}</p>
+                        <div class="timeline-meta">
+                            <span>推荐时长 {{ item.recommended_minutes }} 分钟</span>
+                            <span>当前掌握 {{ item.score }}%</span>
+                        </div>
+                        {% if item.dependencies %}<small>前置依赖：{{ item.dependencies|join('、') }}</small>{% endif %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head"><div><p class="panel-tag">今日任务</p><h2>学习计划</h2></div></div>
+            <div class="task-list">
+                {% for task in dashboard.today_tasks %}
+                <article class="task-card">
+                    <div class="task-top"><h3>{{ task.title }}</h3><span>{{ task.priority }}</span></div>
+                    <p>{{ task.reason }}</p>
+                    <small>{{ task.minutes }} 分钟</small>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="panel panel-wide">
+            <div class="panel-head">
+                <div><p class="panel-tag">练习趋势</p><h2>近 7 次练习表现</h2></div>
+                <button id="importScoreButton" class="ghost-button">导入历史成绩</button>
+            </div>
+            <div class="chart-card">
+                <svg id="trendChart" viewBox="0 0 720 240" preserveAspectRatio="none" aria-label="练习趋势图"></svg>
+                <div id="chartTooltip" class="chart-tooltip hidden"></div>
+            </div>
+        </section>
+
+        <section class="panel panel-wide">
+            <div class="panel-head"><div><p class="panel-tag">自适应练习</p><h2>推荐练习题</h2></div><button id="submitPracticeButton" class="primary-button">提交练习</button></div>
+            <div id="practiceList" class="practice-list">
+                {% for question in questions %}
+                <article class="practice-card" data-question-id="{{ question.question_id }}">
+                    <div class="practice-title"><h3>{{ loop.index }}. {{ question.question }}</h3><span>难度 {{ question.difficulty }}</span></div>
+                    <div class="option-list">
+                        {% for option in question.options %}
+                        <label class="option-item"><input type="radio" name="question_{{ question.question_id }}" value="{{ option }}"><span>{{ option }}</span></label>
+                        {% endfor %}
+                    </div>
+                </article>
+                {% endfor %}
+            </div>
+            <div id="practiceResult" class="result-box hidden"></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head"><div><p class="panel-tag">错题复盘</p><h2>AIGC 错题本</h2></div></div>
+            <div class="wrong-list">
+                {% if dashboard.wrong_book %}
+                    {% for item in dashboard.wrong_book %}
+                    <article class="wrong-card">
+                        <h3>{{ item.knowledge_name }}</h3>
+                        <p class="wrong-question">{{ item.question }}</p>
+                        <p>{{ item.analysis }}</p>
+                        <small>{{ item.reason }}</small>
+                    </article>
+                    {% endfor %}
+                {% else %}
+                    <article class="empty-card"><p>当前还没有错题记录，完成练习后会自动生成 AIGC 解析与变式题。</p></article>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head"><div><p class="panel-tag">资源推荐</p><h2>推荐学习资源</h2></div></div>
+            <div class="resource-list">
+                {% for resource in dashboard.resources %}
+                <article class="resource-card">
+                    <div class="resource-top"><h3>{{ resource.title }}</h3><span>{{ resource.type }}</span></div>
+                    <p>{{ resource.description }}</p>
+                    <small>{{ resource.reason }}</small>
+                    <div class="resource-meta"><span>{{ resource.minutes }} 分钟</span><span>{{ resource.faq }}</span></div>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+</div>
+<script>
+window.dashboardData = {{ dashboard|tojson }};
+window.initialQuestions = {{ questions|tojson }};
+</script>
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+</body>
+</html>

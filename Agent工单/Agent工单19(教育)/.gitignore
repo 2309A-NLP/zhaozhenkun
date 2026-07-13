@@ -1,0 +1,9 @@
+# 工单19：忽略本地密钥、缓存、运行日志与打包产物。
+.env.local
+__pycache__/
+*.pyc
+*.db
+app.log
+dashboard_after.json
+*.zip
+.idea/
