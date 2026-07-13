@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工单18-智能助教V1.0</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h1>智能助教 V1.0</h1>
+      <p>教师/学生专属知识库 + 多模态检索增强问答</p>
+      <div class="card">
+        <h3>账号</h3>
+        <input id="username" value="student01" placeholder="用户名">
+        <input id="password" value="123456" type="password" placeholder="密码">
+        <button id="login-btn">登录</button>
+        <small id="login-status">未登录</small>
+      </div>
+      <div class="card">
+        <h3>模型选择</h3>
+        <div class="model-switch">
+          <label><input type="radio" name="provider" value="deepseek" checked> DeepSeek</label>
+          <label><input type="radio" name="provider" value="qwen"> 千问</label>
+        </div>
+        <small>问答与图片解析都会沿用当前模型提供商</small>
+      </div>
+      <div class="card">
+        <h3>检索范围</h3>
+        <label><input id="use-public" type="checkbox" checked> 公共知识库</label>
+        <label><input id="use-private" type="checkbox" checked> 私有知识库</label>
+      </div>
+      <div class="card metrics">
+        <h3>工作台</h3>
+        <div id="dashboard"></div>
+      </div>
+    </aside>
+    <main class="main">
+      <section class="hero">
+        <h2>教育智能体 · 智能助教场景</h2>
+        <p>支持教师/学生私有知识、公有知识混合检索、结构化引用、多格式文档与图片上传。</p>
+      </section>
+      <section class="grid">
+        <div class="panel">
+          <h3>1. 文本知识录入</h3>
+          <input id="text-title" placeholder="资源标题，例如：梯度下降课堂总结">
+          <select id="text-scope">
+            <option value="private">私有知识库</option>
+            <option value="public">公共知识库</option>
+          </select>
+          <select id="text-type">
+            <option value="text">text</option>
+            <option value="markdown">markdown</option>
+            <option value="table">table</option>
+            <option value="formula_note">formula_note</option>
+            <option value="image_note">image_note</option>
+          </select>
+          <input id="text-tags" placeholder="标签，逗号分隔">
+          <textarea id="text-content" rows="8" placeholder="输入知识内容，可包含表格、公式说明、图片描述等。"></textarea>
+          <button id="save-text-btn">保存文本知识</button>
+        </div>
+        <div class="panel">
+          <h3>2. 文件 / 图片知识上传</h3>
+          <select id="file-scope">
+            <option value="private">私有知识库</option>
+            <option value="public">公共知识库</option>
+          </select>
+          <input id="file-input" type="file" accept=".pdf,.txt,.md,.csv,.xlsx,.docx,.pptx,.png,.jpg,.jpeg,.bmp,.webp,.doc,.ppt,.xls">
+          <button id="upload-file-btn">上传知识文件</button>
+          <small>优先支持 PDF / TXT / MD / CSV / XLSX / DOCX / PPTX / 图片，旧版 DOC/PPT/XLS 会提示先转换。</small>
+        </div>
+      </section>
+      <section class="panel ask-panel">
+        <h3>3. 智能问答</h3>
+        <textarea id="question" rows="5" placeholder="例如：请解释梯度下降的原理，并结合我笔记里的房价预测案例说明。"></textarea>
+        <div class="actions">
+          <button id="ask-btn">开始问答</button>
+          <button id="search-btn">仅看检索结果</button>
+          <button id="refresh-btn">刷新资源列表</button>
+        </div>
+      </section>
+      <section class="grid">
+        <div class="panel">
+          <h3>4. 助教回答</h3>
+          <pre id="answer-box">请先登录并提问。</pre>
+        </div>
+        <div class="panel">
+          <h3>5. 检索结果与引用</h3>
+          <div id="references"></div>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="resource-toolbar">
+          <h3>6. 当前可访问知识资源</h3>
+          <div class="toolbar-row">
+            <select id="resource-scope-filter">
+              <option value="all">全部范围</option>
+              <option value="public">仅公共</option>
+              <option value="private">仅私有</option>
+            </select>
+            <button id="clear-detail-btn">清空详情</button>
+          </div>
+        </div>
+        <div id="resource-list"></div>
+      </section>
+      <section class="panel">
+        <h3>7. 资源详情</h3>
+        <div id="resource-detail">点击“查看详情”后在这里展示结构化片段、定位和原文摘要。</div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

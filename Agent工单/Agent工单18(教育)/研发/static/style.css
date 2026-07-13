@@ -1,0 +1,28 @@
+/* 工单18：style.css - 智能助教前端页面样式模块。 */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #f5f7fb; color: #18202a; }
+.layout { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+.sidebar { padding: 24px; background: #132238; color: #f5f8ff; }
+.sidebar h1 { margin-top: 0; font-size: 28px; }
+.card { background: rgba(255,255,255,0.08); padding: 16px; border-radius: 14px; margin-top: 16px; }
+.card input, .card select, .card textarea, .panel input, .panel select, .panel textarea { width: 100%; margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid #ccd5e1; }
+.card button, .panel button { margin-top: 12px; padding: 10px 16px; border: none; border-radius: 10px; background: #2563eb; color: #fff; cursor: pointer; }
+.model-switch { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.main { padding: 24px; }
+.hero { background: linear-gradient(135deg, #eff6ff, #ffffff); padding: 20px; border-radius: 18px; border: 1px solid #dbe7ff; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+.panel { background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
+.panel h3 { margin-top: 0; }
+.ask-panel .actions, .toolbar-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+pre { white-space: pre-wrap; word-break: break-word; background: #0f172a; color: #eff6ff; padding: 14px; border-radius: 12px; min-height: 220px; }
+.resource-item, .ref-item, .detail-block { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-top: 10px; background: #f8fbff; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #dbeafe; color: #1d4ed8; font-size: 12px; margin-right: 8px; }
+.metrics-line { margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.08); border-radius: 10px; }
+.meta-line { margin-top: 8px; color: #475569; font-size: 13px; }
+.resource-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.resource-actions button { margin-top: 0; padding: 8px 12px; background: #0f766e; }
+.resource-actions .danger { background: #dc2626; }
+.resource-toolbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.location-text { color: #0f766e; font-weight: 600; }
+.empty-note { color: #64748b; }
+@media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .grid { grid-template-columns: 1fr; } }

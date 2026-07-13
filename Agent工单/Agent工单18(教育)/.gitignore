@@ -1,0 +1,5 @@
+研发/data/*.json
+部署/model_secrets.local.json
+__pycache__/
+*.pyc
+.pytest_cache/
