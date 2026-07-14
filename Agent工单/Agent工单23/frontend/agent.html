@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research Agent — 智能问答</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei","Segoe UI",sans-serif;background:#0d1117;color:#c9d1d9;display:flex;height:100vh}
+/* 左侧面板 */
+.side{width:280px;background:#161b22;padding:20px;display:flex;flex-direction:column;gap:14px;border-right:1px solid #30363d;flex-shrink:0}
+.side h2{color:#58a6ff;text-align:center;font-size:18px;margin-bottom:6px}
+.side .logo{text-align:center;font-size:40px;margin-bottom:4px}
+.side label{font-size:11px;color:#8b949e;margin-bottom:-8px}
+.side input,.side button{width:100%;padding:10px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#c9d1d9;font-size:13px;outline:none}
+.side input:focus{border-color:#58a6ff}
+.side button{background:#238636;color:#fff;cursor:pointer;font-weight:bold;border:none;transition:background .2s}
+.side button:hover{background:#2ea043}
+.side button.danger{background:#da3633}
+.side button.danger:hover{background:#f85149}
+.side .stats{font-size:11px;color:#8b949e;background:#0d1117;border-radius:6px;padding:10px;line-height:1.8}
+.side .stats span{color:#58a6ff;font-weight:bold}
+.side .info{font-size:10px;color:#484f58;margin-top:auto;text-align:center;line-height:1.8}
+/* 右侧主区 */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.bar{background:#161b22;padding:12px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.bar h1{font-size:17px;color:#58a6ff}
+.bar .badge{font-size:11px;background:#1a2332;color:#58a6ff;padding:4px 10px;border-radius:12px;border:1px solid #1f6feb}
+/* 聊天区域 */
+.chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:85%;padding:12px 16px;border-radius:8px;line-height:1.7;font-size:14px;word-break:break-word;animation:fadeIn .25s}
+.msg.user{align-self:flex-end;background:#238636;color:#fff}
+.msg.agent{align-self:flex-start;background:#161b22;border:1px solid #30363d}
+.msg.tool{align-self:flex-start;background:#1a2332;border:1px solid #1f6feb;font-size:12px;color:#58a6ff}
+.msg.system{align-self:center;font-size:12px;color:#484f58;text-align:center;max-width:90%}
+.msg.error{align-self:center;background:#3d1a1a;border:1px solid #da3633;color:#f85149;font-size:12px}
+.msg .label{font-size:10px;color:#8b949e;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px}
+.msg .content{white-space:pre-wrap}
+/* 加载动画 */
+.typing{display:flex;gap:6px;padding:12px 16px}
+.typing span{width:8px;height:8px;background:#58a6ff;border-radius:50%;animation:bounce 1.4s infinite ease-in-out}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* 输入区 */
+.inputB{display:flex;padding:14px 20px;background:#161b22;gap:10px;border-top:1px solid #30363d;flex-shrink:0}
+.inputB input{flex:1;padding:12px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#fff;font-size:14px;outline:none;transition:border-color .2s}
+.inputB input:focus{border-color:#58a6ff}
+.inputB button{padding:12px 28px;background:#238636;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;font-size:14px;transition:background .2s;white-space:nowrap}
+.inputB button:hover:not(:disabled){background:#2ea043}
+.inputB button:disabled{opacity:.4;cursor:not-allowed}
+/* 滚动条 */
+.chat::-webkit-scrollbar{width:6px}
+.chat::-webkit-scrollbar-track{background:transparent}
+.chat::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+</style>
+</head>
+<body>
+
+<!-- 左侧面板 -->
+<div class="side">
+  <div class="logo">🔬</div>
+  <h2>Research Agent</h2>
+  <label>📝 示例问题（点击发送）</label>
+  <button onclick="ask('2024年巴黎奥运会的开幕式在哪个场馆举行？')" style="background:#1a2332;color:#58a6ff;text-align:left;font-weight:normal;font-size:12px;white-space:normal;line-height:1.4">
+    🏅 2024巴黎奥运会开幕式在哪个场馆举行？
+  </button>
+  <button onclick="ask('Who is the CEO of Apple Inc. as of 2024?')" style="background:#1a2332;color:#58a6ff;text-align:left;font-weight:normal;font-size:12px;white-space:normal;line-height:1.4">
+    🍎 Who is the CEO of Apple Inc. as of 2024?
+  </button>
+  <button onclick="ask('中国首个火星探测器天问一号是在哪一年发射的？')" style="background:#1a2332;color:#58a6ff;text-align:left;font-weight:normal;font-size:12px;white-space:normal;line-height:1.4">
+    🚀 中国首个火星探测器天问一号在哪一年发射？
+  </button>
+  <button onclick="ask('比特币的创始人中本聪在哪一年发布了比特币白皮书？')" style="background:#1a2332;color:#58a6ff;text-align:left;font-weight:normal;font-size:12px;white-space:normal;line-height:1.4">
+    💰 比特币白皮书在哪一年发布？
+  </button>
+  <div class="stats">
+    📊 状态: <span id="sts">就绪</span><br>
+    🔄 已答: <span id="cnt">0</span> 题<br>
+    ⚡ 模型: <span>deepseek-chat</span>
+  </div>
+  <label>🔤 搜索语言</label>
+  <select id="lang" style="width:100%;padding:10px;border-radius:6px;border:1px solid #30363d;background:#0d1117;color:#c9d1d9;font-size:13px;cursor:pointer">
+    <option value="auto">🔀 自动（中英文均可）</option>
+    <option value="zh">🇨🇳 中文搜索</option>
+    <option value="en">🇺🇸 English Search</option>
+  </select>
+  <button class="danger" onclick="clearChat()">🗑 清空对话</button>
+  <div class="info">
+    🔬 Research Agent v1.0<br>
+    🧠 ReAct 推理模式<br>
+    🔍 联网搜索 + 多步推理<br>
+    📡 端口: 8000
+  </div>
+</div>
+
+<!-- 右侧主区 -->
+<div class="main">
+  <div class="bar">
+    <h1>🔬 Research Agent · 智能问答</h1>
+    <span class="badge" id="badge">ReAct 模式</span>
+  </div>
+
+  <!-- 聊天区 -->
+  <div class="chat" id="chat">
+    <div class="msg system">
+      👋 你好！我是 <b>Research Agent</b>，擅长多步推理和联网搜索。<br><br>
+      💡 <b>使用方式：</b><br>
+      &nbsp;&nbsp;1. 在底部输入框输入你的问题<br>
+      &nbsp;&nbsp;2. 我会自动搜索网络并推理<br>
+      &nbsp;&nbsp;3. 也可以点击左侧示例问题快速体验<br><br>
+      🔍 <b>我擅长：</b>事实查询、多步推理、单位换算、历史事件等<br>
+      ⚡ <b>注意：</b>复杂问题可能需要30-60秒的推理时间
+    </div>
+  </div>
+
+  <!-- 输入区 -->
+  <div class="inputB">
+    <input id="inp" placeholder="输入你的问题，Enter 发送..." onkeydown="if(event.key==='Enter')send()">
+    <button id="btn" onclick="send()">🚀 发送</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 全局状态
+// ============================================================
+var answerCount = 0; // 已回答问题计数
+
+// ============================================================
+// 工具函数
+// ============================================================
+function $(id) { return document.getElementById(id); } // 快捷获取元素
+
+function addMsg(role, html) { // 添加消息到聊天区
+  var div = document.createElement('div'); // 创建 div
+  div.className = 'msg ' + role; // 设置 CSS 类
+  div.innerHTML = html; // 设置 HTML 内容
+  $('chat').appendChild(div); // 添加到聊天区
+  $('chat').scrollTop = $('chat').scrollHeight; // 滚动到底部
+  return div; // 返回元素引用
+}
+
+// ============================================================
+// 核心功能
+// ============================================================
+async function send() { // 发送问题（使用 SSE 流式）
+  var msg = $('inp').value.trim(); // 获取输入
+  if (!msg) return; // 空消息忽略
+
+  $('inp').value = ''; // 清空输入
+  $('inp').disabled = true; // 禁用输入
+  $('btn').disabled = true; // 禁用按钮
+  $('badge').textContent = '推理中...'; // 状态徽章
+
+  addMsg('user', '<div class="label">❓ 你的问题</div><div class="content">' + escapeHtml(msg) + '</div>'); // 用户消息
+
+  // 创建 Agent 状态消息（会被实时更新）
+  var statusDiv = addMsg('agent', '<div class="label">🔍 初始化...</div><div class="typing"><span></span><span></span><span></span></div>'); // 加载动画
+  var t0 = Date.now(); // 计时
+
+  try {
+    // 使用 fetch + ReadableStream 接收 SSE 事件
+    var resp = await fetch('/api/answer/stream', { // SSE 端点
+      method: 'POST', // POST 请求
+      headers: { 'Content-Type': 'application/json' }, // JSON 头
+      body: JSON.stringify({ question: msg, lang: $('lang').value }) // 请求体（含语言选择）
+    });
+
+    var reader = resp.body.getReader(); // 获取流读取器
+    var decoder = new TextDecoder(); // 文本解码器
+    var buffer = ''; // 缓冲区
+
+    while (true) { // 循环读取事件
+      var { done, value } = await reader.read(); // 读取一块数据
+      if (done) break; // 流结束
+
+      buffer += decoder.decode(value, { stream: true }); // 追加到缓冲区
+
+      // 解析 SSE 事件（以 \n\n 分隔）
+      var lines = buffer.split('\n\n'); // 按分隔符分割
+      buffer = lines.pop(); // 最后一段可能不完整，保留
+
+      for (var li = 0; li < lines.length; li++) { // 遍历完整事件
+        var line = lines[li].trim(); // 去除空白
+        if (!line.startsWith('data: ')) continue; // 跳过非 data 行
+        var jsonStr = line.substring(6); // 去掉 "data: " 前缀
+        if (jsonStr === '[DONE]') continue; // 结束标记
+
+        try {
+          var evt = JSON.parse(jsonStr); // 解析事件 JSON
+          updateStatus(statusDiv, evt, t0); // 更新状态显示
+          if (evt.type === 'answer') { // 获得最终答案
+            answerCount++; // 计数
+            $('cnt').textContent = answerCount; // 更新
+            $('sts').textContent = '就绪'; // 状态
+            $('badge').textContent = evt.turns + '轮 ' + evt.elapsed + 's'; // 显示统计
+          }
+          if (evt.type === 'error') { // 出错
+            $('sts').textContent = '出错'; // 状态
+            $('badge').textContent = 'ReAct 模式'; // 恢复
+          }
+        } catch(e) { /* JSON解析失败跳过 */ }
+      }
+    }
+  } catch (e) { // 网络错误
+    statusDiv.innerHTML = '<div class="label">❌ 连接失败</div><div class="content">' + escapeHtml(e.message) + '</div>'; // 错误信息
+    statusDiv.className = 'msg error'; // 错误样式
+    $('sts').textContent = '连接失败'; // 状态
+    $('badge').textContent = 'ReAct 模式'; // 恢复
+  } finally { // 恢复 UI
+    $('inp').disabled = false; // 恢复输入
+    $('btn').disabled = false; // 恢复按钮
+    $('inp').focus(); // 聚焦
+  }
+}
+
+function updateStatus(div, evt, t0) { // 根据事件类型更新状态消息
+  var elapsed = ((Date.now() - t0) / 1000).toFixed(1); // 已用时间
+  switch (evt.type) {
+    case 'start': // 开始
+      div.innerHTML = '<div class="label">🚀 开始研究 (' + elapsed + 's)</div><div class="content">' + escapeHtml(evt.question.substring(0, 80)) + '...</div>';
+      break;
+    case 'thinking': // 思考中
+      div.innerHTML = '<div class="label">🧠 第' + evt.turn + '轮 思考中... (' + elapsed + 's)</div><div class="typing"><span></span><span></span><span></span></div>';
+      break;
+    case 'searching': // 搜索中
+      div.innerHTML = '<div class="label">🔍 第' + evt.turn + '轮 搜索中 (' + elapsed + 's)</div><div class="content" style="color:#58a6ff">' + escapeHtml(evt.query) + '</div>';
+      break;
+    case 'results': // 搜索结果
+      div.innerHTML = '<div class="label">📊 第' + evt.turn + '轮 找到 ' + evt.count + ' 条结果 (' + elapsed + 's)</div><div class="content" style="color:#8b949e">分析搜索结果中...</div>';
+      break;
+    case 'fetching': // 抓取网页
+      div.innerHTML = '<div class="label">📄 第' + evt.turn + '轮 读取网页 (' + elapsed + 's)</div><div class="content" style="color:#58a6ff;font-size:11px">' + escapeHtml(evt.url.substring(0, 80)) + '</div>';
+      break;
+    case 'answer': // 获得答案
+      div.innerHTML = '<div class="label">✅ 答案 (' + evt.turns + '轮 ' + evt.elapsed + 's)</div><div class="content" style="font-size:16px;font-weight:bold;color:#58a6ff">' + escapeHtml(evt.content) + '</div>';
+      break;
+    case 'error': // 错误
+      div.innerHTML = '<div class="label">⚠️ 错误</div><div class="content" style="color:#f85149">' + escapeHtml(evt.content) + '</div>';
+      div.className = 'msg error';
+      break;
+  }
+}
+
+function ask(question) { // 快捷提问（点击示例）
+  $('inp').value = question; // 填入问题
+  send(); // 发送
+}
+
+function clearChat() { // 清空对话
+  $('chat').innerHTML = ''; // 清空聊天区
+  addMsg('system', '🗑 对话已清空。输入新问题开始吧！'); // 提示信息
+  answerCount = 0; // 重置计数
+  $('cnt').textContent = '0'; // 更新显示
+}
+
+function escapeHtml(text) { // HTML 转义
+  if (!text) return ''; // 空文本
+  return text // 转义 HTML 特殊字符
+    .replace(/&/g, '&amp;') // & 符号
+    .replace(/</g, '&lt;') // < 符号
+    .replace(/>/g, '&gt;') // > 符号
+    .replace(/"/g, '&quot;') // 双引号
+    .replace(/'/g, '&#039;') // 单引号
+    .replace(/\n/g, '<br>'); // 换行
+}
+</script>
+</body>
+</html>
