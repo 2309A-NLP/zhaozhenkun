@@ -1,0 +1,10 @@
+version: '3.9'
+services:
+  digital-human-app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - 部署/.env
+    volumes:
+      - ./部署/runtime:/app/部署/runtime

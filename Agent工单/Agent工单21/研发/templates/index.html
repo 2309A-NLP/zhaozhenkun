@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<!-- 文件功能：提供数字人项目的验收演示页面，用于管理训练、问答和数字人输出流程。 -->
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ app_name }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; background: #f7f8fa; color: #1f2937; }
+    h1, h2, h3 { margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(360px, 1fr)); gap: 20px; }
+    .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .wide { grid-column: 1 / -1; }
+    textarea, input, select { width: 100%; margin-top: 8px; margin-bottom: 12px; padding: 8px; box-sizing: border-box; }
+    select[multiple] { min-height: 120px; }
+    button { padding: 8px 16px; cursor: pointer; margin-right: 8px; margin-bottom: 8px; }
+    pre { white-space: pre-wrap; background: #111827; color: #f9fafb; padding: 12px; border-radius: 8px; min-height: 120px; }
+    ul { padding-left: 18px; margin: 8px 0; }
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #e5e7eb; margin-right: 8px; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    .muted { color: #6b7280; font-size: 13px; }
+    .list { max-height: 240px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px; }
+    .item { border-bottom: 1px solid #eef2f7; padding: 8px 0; }
+    .item:last-child { border-bottom: 0; }
+  </style>
+</head>
+<body>
+  <h1>{{ app_name }}</h1>
+  <p class="muted">当前页面用于演示数字人创建、素材管理、训练预检、问答和数字人输出全流程。</p>
+  <div class="grid">
+    <section class="card">
+      <h2>系统状态</h2>
+      <div id="status-badges"></div>
+      <button onclick="refreshReadiness()">刷新就绪状态</button>
+      <div class="list" id="readiness-list"></div>
+    </section>
+    <section class="card">
+      <h2>快速概览</h2>
+      <ul>
+        <li>数字人数量：<span id="persona-count">{{ personas|length }}</span></li>
+        <li>素材数量：<span id="asset-count">{{ assets|length }}</span></li>
+        <li>训练任务数量：<span id="training-count">{{ training_jobs|length }}</span></li>
+        <li>数字人任务数量：<span id="avatar-count">{{ avatar_jobs|length }}</span></li>
+      </ul>
+      <button onclick="bootstrapPage()">刷新全部数据</button>
+    </section>
+
+    <section class="card">
+      <h2>创建数字人</h2>
+      <input id="persona-name" placeholder="数字人名称" value="默认数字人">
+      <input id="persona-desc" placeholder="数字人描述" value="基于上传素材构建的个人数字人。">
+      <div class="row">
+        <div><input id="persona-voice" placeholder="口播风格" value="专业、自然、简洁"></div>
+        <div><input id="persona-motion" placeholder="动作风格" value="自然"></div>
+      </div>
+      <button onclick="createPersona()">创建数字人</button>
+    </section>
+
+    <section class="card">
+      <h2>素材录入</h2>
+      <input id="asset-name" placeholder="文本素材名称" value="个人介绍">
+      <textarea id="asset-content" rows="5" placeholder="输入知识文本"></textarea>
+      <button onclick="createTextAsset()">保存文本素材</button>
+      <hr>
+      <input id="asset-upload-tags" placeholder="上传标签，逗号分隔" value="demo,upload">
+      <select id="asset-upload-type">
+        <option value="document">document</option>
+        <option value="image">image</option>
+        <option value="video">video</option>
+        <option value="text">text</option>
+      </select>
+      <input id="asset-upload-file" type="file">
+      <button onclick="uploadAsset()">上传文件素材</button>
+    </section>
+
+    <section class="card wide">
+      <h2>数字人与素材绑定</h2>
+      <div class="row">
+        <div>
+          <label>选择数字人</label>
+          <select id="persona-select"></select>
+        </div>
+        <div>
+          <label>头像素材</label>
+          <select id="avatar-image-select"></select>
+        </div>
+      </div>
+      <label>知识素材（可多选）</label>
+      <select id="knowledge-assets-select" multiple></select>
+      <button onclick="updatePersonaBindings()">保存绑定关系</button>
+      <div class="list" id="persona-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>训练任务</h2>
+      <label>训练素材（可多选）</label>
+      <select id="training-assets-select" multiple></select>
+      <button onclick="preflightTraining()">训练预检</button>
+      <button onclick="createTrainingJob()">创建训练任务</button>
+      <div class="list" id="training-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>问答与多模态</h2>
+      <select id="chat-image-select"></select>
+      <textarea id="chat-question" rows="4" placeholder="输入问题"></textarea>
+      <button onclick="chatWithPersona()">发送问题</button>
+      <button onclick="preflightAvatar()">数字人任务预检</button>
+      <button onclick="createAvatarJob()">生成数字人输出</button>
+      <div class="list" id="chat-summary"></div>
+    </section>
+
+    <section class="card wide">
+      <h2>训练 / 数字人任务列表</h2>
+      <div class="row">
+        <div>
+          <h3>训练任务</h3>
+          <div class="list" id="training-job-list"></div>
+        </div>
+        <div>
+          <h3>数字人任务</h3>
+          <div class="list" id="avatar-job-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>接口结果</h2>
+      <pre id="result-box">等待操作...</pre>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      personas: [],
+      assets: [],
+      trainingJobs: [],
+      avatarJobs: [],
+      lastChat: null,
+      readiness: null,
+    };
+
+    function setResult(data) {
+      document.getElementById('result-box').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function fetchJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || '请求失败');
+      }
+      return data;
+    }
+
+    async function sendJson(url, payload, method = 'POST') {
+      const data = await fetchJson(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      setResult(data);
+      return data;
+    }
+
+    function selectedValues(selectId) {
+      return Array.from(document.getElementById(selectId).selectedOptions).map(option => option.value).filter(Boolean);
+    }
+
+    function fillSelect(selectId, items, formatter, includeEmpty = false) {
+      const select = document.getElementById(selectId);
+      const previous = includeEmpty ? select.value : selectedValues(selectId);
+      const isMultiple = select.multiple;
+      const selectedBefore = Array.isArray(previous) ? previous : [previous];
+      select.innerHTML = includeEmpty ? '<option value="">不选择</option>' : '';
+      items.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.value;
+        option.textContent = formatter(item);
+        if (selectedBefore.includes(item.value)) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      });
+      if (!isMultiple && includeEmpty && !selectedBefore[0]) {
+        select.value = '';
+      }
+    }
+
+    function renderStatus() {
+      const container = document.getElementById('status-badges');
+      const readinessList = document.getElementById('readiness-list');
+      const readiness = state.readiness;
+      if (!readiness) {
+        container.innerHTML = '<span class="badge">未加载</span>';
+        readinessList.innerHTML = '';
+        return;
+      }
+      container.innerHTML = '';
+      ['effective_mode', 'mock_mode', 'real_pipeline_ready'].forEach(key => {
+        const span = document.createElement('span');
+        span.className = 'badge';
+        span.textContent = `${key}: ${readiness[key]}`;
+        container.appendChild(span);
+      });
+      readinessList.innerHTML = readiness.checks.map(item => `<div class="item"><strong>${item.name}</strong> - ${item.ok ? 'OK' : '缺失'}<br><span class="muted">${item.detail}${item.value ? `（${item.value}）` : ''}</span></div>`).join('');
+    }
+
+    function renderPersonas() {
+      const personaItems = state.personas.map(persona => ({ value: persona.persona_id, label: `${persona.name} (${persona.persona_id})` }));
+      fillSelect('persona-select', personaItems, item => item.label);
+      const personaList = document.getElementById('persona-list');
+      personaList.innerHTML = state.personas.map(persona => `
+        <div class="item">
+          <strong>${persona.name}</strong><br>
+          <span class="muted">${persona.persona_id}</span><br>
+          <span class="muted">知识素材：${(persona.knowledge_asset_ids || []).join(', ') || '无'}；头像：${persona.avatar_image_asset_id || '无'}</span><br>
+          <span class="muted">训练数据：${persona.ultralight_dataset_dir || '无'}；权重：${persona.ultralight_checkpoint_path || '无'}</span>
+        </div>
+      `).join('');
+      document.getElementById('persona-count').textContent = state.personas.length;
+    }
+
+    function renderAssets() {
+      const assetItems = state.assets.map(asset => ({ value: asset.asset_id, label: `${asset.name} [${asset.asset_type}] (${asset.asset_id})` }));
+      fillSelect('knowledge-assets-select', assetItems, item => item.label);
+      fillSelect('training-assets-select', assetItems, item => item.label);
+      fillSelect('avatar-image-select', [{ value: '', label: '不绑定头像' }, ...assetItems.filter(item => /\[(image|document|video|text)\]/.test(item.label))], item => item.label);
+      fillSelect('chat-image-select', [{ value: '', label: '不使用图片素材' }, ...assetItems.filter(item => item.label.includes('[image]'))], item => item.label);
+      document.getElementById('asset-count').textContent = state.assets.length;
+    }
+
+    function renderTrainingJobs() {
+      document.getElementById('training-count').textContent = state.trainingJobs.length;
+      const html = state.trainingJobs.map(job => `
+        <div class="item">
+          <strong>${job.job_id}</strong><br>
+          <span class="muted">状态：${job.status}；阶段：${job.stage}</span><br>
+          <span class="muted">说明：${job.message}</span><br>
+          <span class="muted">产物：${job.result_path || '无'}</span>
+        </div>
+      `).join('');
+      document.getElementById('training-job-list').innerHTML = html;
+      document.getElementById('training-list').innerHTML = html;
+    }
+
+    function renderAvatarJobs() {
+      document.getElementById('avatar-count').textContent = state.avatarJobs.length;
+      const html = state.avatarJobs.map(job => `
+        <div class="item">
+          <strong>${job.avatar_job_id}</strong><br>
+          <span class="muted">状态：${job.status}</span><br>
+          <span class="muted">脚本：${(job.script_text || '').replace(/\n/g, ' / ') || '无'}</span><br>
+          <span class="muted">输出：${job.output_path || '无'}</span>
+        </div>
+      `).join('');
+      document.getElementById('avatar-job-list').innerHTML = html;
+    }
+
+    function renderChatSummary() {
+      const chat = state.lastChat;
+      document.getElementById('chat-summary').innerHTML = chat ? `
+        <div class="item"><strong>会话：</strong>${chat.session_id}</div>
+        <div class="item"><strong>回答：</strong>${chat.answer_text}</div>
+        <div class="item"><strong>命中素材：</strong>${(chat.knowledge_assets || []).map(item => item.name).join(', ') || '无'}</div>
+        <div class="item"><strong>图像摘要：</strong>${chat.image_summary || '无'}</div>
+      ` : '<div class="item">尚未发起问答。</div>';
+    }
+
+    async function refreshReadiness() {
+      state.readiness = await fetchJson('/api/readiness');
+      setResult(state.readiness);
+      renderStatus();
+    }
+
+    async function refreshCollections() {
+      const [personas, assets, trainingJobs, avatarJobs] = await Promise.all([
+        fetchJson('/api/personas'),
+        fetchJson('/api/assets'),
+        fetchJson('/api/training-jobs'),
+        fetchJson('/api/avatar-jobs'),
+      ]);
+      state.personas = personas;
+      state.assets = assets;
+      state.trainingJobs = trainingJobs;
+      state.avatarJobs = avatarJobs;
+      renderPersonas();
+      renderAssets();
+      renderTrainingJobs();
+      renderAvatarJobs();
+    }
+
+    async function bootstrapPage() {
+      await Promise.all([refreshCollections(), refreshReadiness()]);
+      renderChatSummary();
+    }
+
+    async function createPersona() {
+      const data = await sendJson('/api/personas', {
+        name: document.getElementById('persona-name').value,
+        description: document.getElementById('persona-desc').value,
+        voice_style: document.getElementById('persona-voice').value,
+        motion_style: document.getElementById('persona-motion').value,
+      });
+      await refreshCollections();
+      document.getElementById('persona-select').value = data.persona_id || '';
+    }
+
+    async function createTextAsset() {
+      await sendJson('/api/assets/text', {
+        name: document.getElementById('asset-name').value,
+        content_text: document.getElementById('asset-content').value,
+        tags: ['页面录入'],
+      });
+      await refreshCollections();
+    }
+
+    async function uploadAsset() {
+      const input = document.getElementById('asset-upload-file');
+      if (!input.files.length) {
+        alert('请先选择文件。');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('file', input.files[0]);
+      formData.append('asset_type', document.getElementById('asset-upload-type').value);
+      formData.append('tags', document.getElementById('asset-upload-tags').value);
+      const data = await fetchJson('/api/assets/upload', { method: 'POST', body: formData });
+      setResult(data);
+      input.value = '';
+      await refreshCollections();
+    }
+
+    async function updatePersonaBindings() {
+      const personaId = document.getElementById('persona-select').value;
+      if (!personaId) {
+        alert('请先选择数字人。');
+        return;
+      }
+      const data = await sendJson(`/api/personas/${personaId}`, {
+        avatar_image_asset_id: document.getElementById('avatar-image-select').value,
+        knowledge_asset_ids: selectedValues('knowledge-assets-select'),
+      }, 'PUT');
+      await refreshCollections();
+      setResult(data);
+    }
+
+    async function preflightTraining() {
+      const personaId = document.getElementById('persona-select').value;
+      if (!personaId) {
+        alert('请先选择数字人。');
+        return;
+      }
+      await sendJson('/api/training-jobs/preflight', {
+        persona_id: personaId,
+        asset_ids: selectedValues('training-assets-select'),
+      });
+    }
+
+    async function createTrainingJob() {
+      const personaId = document.getElementById('persona-select').value;
+      if (!personaId) {
+        alert('请先选择数字人。');
+        return;
+      }
+      const data = await sendJson('/api/training-jobs', {
+        persona_id: personaId,
+        asset_ids: selectedValues('training-assets-select'),
+      });
+      await refreshCollections();
+      setResult(data);
+    }
+
+    async function chatWithPersona() {
+      const personaId = document.getElementById('persona-select').value;
+      if (!personaId) {
+        alert('请先选择数字人。');
+        return;
+      }
+      state.lastChat = await sendJson('/api/chat', {
+        persona_id: personaId,
+        question: document.getElementById('chat-question').value,
+        session_id: state.lastChat?.session_id || '',
+        image_asset_id: document.getElementById('chat-image-select').value,
+      });
+      renderChatSummary();
+    }
+
+    async function preflightAvatar() {
+      const personaId = document.getElementById('persona-select').value;
+      if (!personaId) {
+        alert('请先选择数字人。');
+        return;
+      }
+      await sendJson('/api/avatar-jobs/preflight', { persona_id: personaId });
+    }
+
+    async function createAvatarJob() {
+      const personaId = document.getElementById('persona-select').value;
+      if (!personaId) {
+        alert('请先选择数字人。');
+        return;
+      }
+      if (!state.lastChat?.answer_text) {
+        alert('请先完成一次问答。');
+        return;
+      }
+      const data = await sendJson('/api/avatar-jobs', {
+        persona_id: personaId,
+        session_id: state.lastChat.session_id,
+        answer_text: state.lastChat.answer_text,
+      });
+      await refreshCollections();
+      setResult(data);
+    }
+
+    bootstrapPage().catch(error => {
+      setResult({ detail: error.message || String(error) });
+    });
+  </script>
+</body>
+</html>

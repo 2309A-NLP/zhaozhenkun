@@ -1,0 +1,5 @@
+部署/.env
+部署/runtime/
+__pycache__/
+.pytest_cache/
+*.pyc
